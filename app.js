@@ -182,7 +182,12 @@ function renderCandidateList() {
     const listElement = document.getElementById('candidate-list');
     listElement.innerHTML = '';
     
-    mockCandidates.forEach(candidate => {
+    // Sort candidates by AI score (highest first)
+    const sortedCandidates = [...mockCandidates].sort((a, b) => {
+        return getAIScore(b.id) - getAIScore(a.id);
+    });
+    
+    sortedCandidates.forEach(candidate => {
         const status = getStatus(candidate.id);
         const score = getAIScore(candidate.id); // Use getAIScore from aiScoring.js
         const item = document.createElement('div');
