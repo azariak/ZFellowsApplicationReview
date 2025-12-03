@@ -1,6 +1,7 @@
 let currentCandidateId = null;
 let candidateStatuses = {};
 let statusHistory = [];
+let redoHistory = [];
 let zoomLevel = 0;
 const fontSizes = [10, 11, 13, 15, 17];
 
@@ -48,6 +49,8 @@ function setStatus(candidateId, status, skipHistory = false) {
     if (!skipHistory && oldStatus !== status) {
         statusHistory.push({ candidateId, oldStatus, newStatus: status, timestamp: Date.now() });
         saveHistory();
+        // Clear redo history when a new action is performed
+        redoHistory = [];
     }
     candidateStatuses[candidateId] = status;
     saveStatuses();
@@ -60,9 +63,24 @@ function undoLastMove() {
     if (!statusHistory.length) return;
     const lastAction = statusHistory.pop();
     saveHistory();
+    // Push to redo stack
+    redoHistory.push(lastAction);
     candidateStatuses[lastAction.candidateId] = lastAction.oldStatus;
     saveStatuses();
     selectCandidate(lastAction.candidateId);
+    renderCandidateList();
+    updateStats();
+}
+
+function redoLastMove() {
+    if (!redoHistory.length) return;
+    const lastRedo = redoHistory.pop();
+    // Push back to history stack
+    statusHistory.push(lastRedo);
+    saveHistory();
+    candidateStatuses[lastRedo.candidateId] = lastRedo.newStatus;
+    saveStatuses();
+    selectCandidate(lastRedo.candidateId);
     renderCandidateList();
     updateStats();
 }
@@ -205,7 +223,13 @@ function setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         const key = e.key.toLowerCase();
-        if (key === 'z') return undoLastMove();
+        // Shift+Z for redo
+        if (key === 'z' && e.shiftKey && !e.ctrlKey) {
+            e.preventDefault();
+            return redoLastMove();
+        }
+        // Z for undo
+        if (key === 'z' && !e.ctrlKey && !e.shiftKey) return undoLastMove();
         if (!currentCandidateId) return;
         const actions = { i: 'interview', e: 'done', p: 'pending' };
         if (actions[key]) {
