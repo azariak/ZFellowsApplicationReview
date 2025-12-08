@@ -362,11 +362,23 @@ function renderCandidateDetails(c) {
     if (c.corySmart) coryScores.push(`Smart: ${c.corySmart}`);
     if (c.coryStorytelling) coryScores.push(`Storytelling: ${c.coryStorytelling}`);
     
+    // Helper to format links
+    const formatLinks = (text) => {
+        if (!text) return '';
+        return text.split(',').map(link => {
+            const trimmed = link.trim();
+            if (trimmed.startsWith('http')) {
+                return `<a href="${trimmed}" target="_blank">${trimmed}</a>`;
+            }
+            return trimmed;
+        }).join('<br>');
+    };
+    
     const sections = [
         ['Company / Project', c.company],
         ['Decision', c.decision],
         ...(coryScores.length ? [['Cory Interview Scores', coryScores.join(' | ')]] : []),
-        ...(c.coryNotes ? [['Cory Notes', c.coryNotes]] : []),
+        ['Cory Notes', c.coryNotes],
         ['School or Work', c.schoolOrWork],
         ['Project Description', c.projectDescription],
         ['Problem Solving', c.problemSolving],
@@ -377,17 +389,23 @@ function renderCandidateDetails(c) {
         ['What Drives You', c.drives],
         ['Non-Traditional Background', c.nonTraditional],
         ['Risk or Challenge', c.riskOrChallenge],
-        ['Website / Links', c.website ? c.website.split(',').map(link => `<a href="${link.trim()}" target="_blank">${link.trim()}</a>`).join('<br>') : ''],
+        ['Website / Links', formatLinks(c.website)],
         ['Achievements', c.achievements],
-        ...(c.videoLink ? [['Video Introduction', `<a href="${c.videoLink}" target="_blank">${c.videoLink}</a>`]] : []),
-        ...(c.pitchVideo ? [['Pitch Video', `<a href="${c.pitchVideo}" target="_blank">${c.pitchVideo}</a>`]] : []),
+        ['Video Introduction', c.videoLink ? `<a href="${c.videoLink}" target="_blank">${c.videoLink}</a>` : ''],
+        ['Pitch Video', c.pitchVideo ? `<a href="${c.pitchVideo}" target="_blank">${c.pitchVideo}</a>` : ''],
         ['Dream Co-founder', c.cofounder],
         ['How They Heard About Z Fellows', c.howHeard],
-        ...(c.helpNeeded ? [['Help Needed', c.helpNeeded]] : [])
+        ['Help Needed', c.helpNeeded],
+        // Stage-related fields
+        ['Stage 2 Calendar Link', c.stage2Calendar ? `<a href="${c.stage2Calendar}" target="_blank">${c.stage2Calendar}</a>` : ''],
+        ['Stage 3 Schedule and Date', c.stage3Schedule],
+        ['Stage 4 Onboarding Doc', c.stage4Onboarding],
+        ['Upcoming Cohort Date', c.upcomingCohortDate],
+        ['Waitlist Update', c.waitlistUpdate],
     ];
     
     // Filter out empty sections
-    const filteredSections = sections.filter(([title, content]) => content && content.trim());
+    const filteredSections = sections.filter(([title, content]) => content && String(content).trim());
     
     document.getElementById('candidate-details').innerHTML = `
         <div class="details-grid">

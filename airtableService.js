@@ -28,6 +28,13 @@ const FIELD_MAPPINGS = {
     'Stage': 'stage',
     'Accept or Reject or Waitlist': 'decision',
     
+    // Stage-related fields
+    'Stage 2 Link To Calendar': 'stage2Calendar',
+    'Stage 3 Schedule and Date': 'stage3Schedule',
+    'Stage 4 Onboarding Doc': 'stage4Onboarding',
+    'Upcoming Cohort Date': 'upcomingCohortDate',
+    'Waitlist Update': 'waitlistUpdate',
+    
     // Cory Interview fields
     'Cory Interview: Energy': 'coryEnergy',
     'Cory Interview: Overall score?': 'coryOverallScore',
