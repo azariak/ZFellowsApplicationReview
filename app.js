@@ -889,17 +889,25 @@ function renderCandidateDetails(c) {
     if (c.corySmart) coryScores.push(`Smart: ${c.corySmart}`);
     if (c.coryStorytelling) coryScores.push(`Storytelling: ${c.coryStorytelling}`);
     
-    // Helper to format links with expand button
+    // Helper to format links with expand button - uses regex to find all URLs
     const formatLinks = (text) => {
         if (!text) return '';
-        return text.split(',').map(link => {
-            const trimmed = link.trim();
-            if (trimmed.startsWith('http')) {
-                const escapedUrl = trimmed.replace(/'/g, "\\'");
-                return `<span class="link-with-expand"><a href="${trimmed}" target="_blank">${trimmed}</a><button class="expand-btn" onclick="openIframePreview('${escapedUrl}')">Expand</button></span>`;
+        // Regex to match URLs
+        const urlRegex = /(https?:\/\/[^\s,<>]+)/g;
+        // Sites that block iframes
+        const noExpandSites = ['linkedin', 'github'];
+        // Replace all URLs with clickable links + expand button (if allowed)
+        const formatted = text.replace(urlRegex, (url) => {
+            const urlLower = url.toLowerCase();
+            const skipExpand = noExpandSites.some(site => urlLower.includes(site));
+            if (skipExpand) {
+                return `<a href="${url}" target="_blank">${url}</a>`;
             }
-            return trimmed;
-        }).join('<br>');
+            const escapedUrl = url.replace(/'/g, "\\'");
+            return `<a href="${url}" target="_blank">${url}</a><button class="expand-btn" onclick="openIframePreview('${escapedUrl}')">Expand</button>`;
+        });
+        // Convert newlines to <br> for display
+        return formatted.replace(/\n/g, '<br>');
     };
     
     const sections = [
