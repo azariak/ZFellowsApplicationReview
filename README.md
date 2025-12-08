@@ -5,10 +5,11 @@ A streamlined dashboard for Cory Levy to review Z Fellows applications with Airt
 
 ## TODO
 - Youtube embed
-- AI Score + option for chronological
+- AI Score
 - All fields there
-- Send data to airtable
+- Add delay timer
 - Stage 1 and stage 1 review should be the same
+- Host on CloudFlare with login?
 
 ## Setup
 
