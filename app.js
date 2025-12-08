@@ -9,15 +9,74 @@ let hasMoreCandidates = false;
 let isLoadingMore = false;
 const fontSizes = [10, 11, 13, 15, 17];
 
+// Airtable settings keys
+const SETTINGS_KEY = 'zfellows-airtable-settings';
+
+// Field mappings for client-side Airtable transformation (mirrors airtableService.js)
+const FIELD_MAPPINGS = {
+    'Email': 'email',
+    'Email Address': 'email',
+    'First': 'firstName',
+    'Last': 'lastName',
+    'First Name': 'firstName',
+    'Last Name': 'lastName',
+    'Name': 'name',
+    'Project name': 'company',
+    'Phone': 'phone',
+    'Birthday': 'birthday',
+    'Born': 'birthday',
+    'Location': 'location',
+    'Technical?': 'technical',
+    'Previously applied?': 'previouslyApplied',
+    'Stage': 'stage',
+    'Accept or Reject or Waitlist': 'decision',
+    'Stage 2 Link To Calendar': 'stage2Calendar',
+    'Stage 3 Schedule and Date': 'stage3Schedule',
+    'Stage 4 Onboarding Doc': 'stage4Onboarding',
+    'Upcoming Cohort Date': 'upcomingCohortDate',
+    'Waitlist Update': 'waitlistUpdate',
+    'Cory Interview: Energy': 'coryEnergy',
+    'Cory Interview: Overall score?': 'coryOverallScore',
+    'Cory Interview: Smart?': 'corySmart',
+    'Cory Interview: Storytelling?': 'coryStorytelling',
+    'Cory notes': 'coryNotes',
+    'School or Work': 'schoolOrWork',
+    'What is the project that you are currently working on or would like to pursue? Why?': 'projectDescription',
+    'What problem are you solving?': 'problemSolving',
+    'What expertise do you have to execute on the work that you want to do?': 'expertise',
+    'Who are your competitors and what do you understand about your idea that they don\'t?': 'competitors',
+    'What have you worked on in the past?': 'pastWork',
+    'What\'s the nerdiest thing about you?': 'nerdy',
+    'What drives you?': 'drives',
+    'What non-traditional things were you doing growing up?': 'nonTraditional',
+    'Tell us about a risk you\'ve taken or a challenge you\'ve faced. Tell us whether you failed or succeeded, how you behaved, and how you think this reflects your character.': 'riskOrChallenge',
+    'Please list or describe any achievements and prizes.': 'achievements',
+    'Website': 'website',
+    'Video Link': 'videoLink',
+    'Video': 'videoLink',
+    'Pitch Video': 'pitchVideo',
+    'Pitch video': 'pitchVideo',
+    'Cofounder': 'cofounder',
+    'Dream Cofounder': 'cofounder',
+    'How did you hear about us?': 'howHeard',
+    'How did you hear about Z Fellows?': 'howHeard',
+    'What help do you need?': 'helpNeeded',
+    'Help Needed': 'helpNeeded'
+};
+
 async function init() {
     loadZoomLevel();
     loadDarkMode();
     loadSidebarWidth();
     setupKeyboardShortcuts();
     setupResizeHandle();
+    setupSettingsModal();
     document.getElementById('zoom-in').addEventListener('click', () => changeZoom(1));
     document.getElementById('zoom-out').addEventListener('click', () => changeZoom(-1));
     document.getElementById('dark-mode-toggle').addEventListener('click', toggleDarkMode);
+    
+    // Update settings button indicator
+    updateSettingsButtonIndicator();
     
     // Show loading state
     showLoadingState();
@@ -31,9 +90,313 @@ async function init() {
     }
 }
 
+// ============ Settings Modal Functions ============
+
+function getAirtableSettings() {
+    const saved = localStorage.getItem(SETTINGS_KEY);
+    if (saved) {
+        try {
+            return JSON.parse(saved);
+        } catch (e) {
+            return null;
+        }
+    }
+    return null;
+}
+
+function saveAirtableSettings(settings) {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function clearAirtableSettings() {
+    localStorage.removeItem(SETTINGS_KEY);
+}
+
+function hasValidSettings() {
+    const settings = getAirtableSettings();
+    return settings && settings.token && settings.baseId && settings.tableName;
+}
+
+function updateSettingsButtonIndicator() {
+    const btn = document.getElementById('settings-toggle');
+    if (hasValidSettings()) {
+        btn.classList.add('has-settings');
+        btn.title = 'Airtable Settings (configured)';
+    } else {
+        btn.classList.remove('has-settings');
+        btn.title = 'Airtable Settings';
+    }
+}
+
+function setupSettingsModal() {
+    const modal = document.getElementById('settings-modal');
+    const toggleBtn = document.getElementById('settings-toggle');
+    const closeBtn = document.getElementById('settings-close');
+    const saveBtn = document.getElementById('settings-save');
+    const clearBtn = document.getElementById('settings-clear');
+    
+    // Open modal
+    toggleBtn.addEventListener('click', () => {
+        openSettingsModal();
+    });
+    
+    // Close modal
+    closeBtn.addEventListener('click', closeSettingsModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeSettingsModal();
+    });
+    
+    // Save settings
+    saveBtn.addEventListener('click', saveSettings);
+    
+    // Clear settings
+    clearBtn.addEventListener('click', () => {
+        clearAirtableSettings();
+        document.getElementById('setting-airtable-token').value = '';
+        document.getElementById('setting-base-id').value = '';
+        document.getElementById('setting-table-name').value = '';
+        updateSettingsButtonIndicator();
+        showSettingsStatus('Settings cleared. Will use server configuration.', 'info');
+    });
+    
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('open')) {
+            closeSettingsModal();
+        }
+    });
+}
+
+function openSettingsModal() {
+    const modal = document.getElementById('settings-modal');
+    const settings = getAirtableSettings();
+    
+    // Populate fields with saved values
+    if (settings) {
+        document.getElementById('setting-airtable-token').value = settings.token || '';
+        document.getElementById('setting-base-id').value = settings.baseId || '';
+        document.getElementById('setting-table-name').value = settings.tableName || '';
+    }
+    
+    // Clear any previous status
+    const status = document.getElementById('settings-status');
+    status.className = 'modal-status';
+    status.textContent = '';
+    
+    modal.classList.add('open');
+}
+
+function closeSettingsModal() {
+    document.getElementById('settings-modal').classList.remove('open');
+}
+
+function showSettingsStatus(message, type) {
+    const status = document.getElementById('settings-status');
+    status.textContent = message;
+    status.className = `modal-status ${type}`;
+}
+
+async function saveSettings() {
+    const token = document.getElementById('setting-airtable-token').value.trim();
+    const baseId = document.getElementById('setting-base-id').value.trim();
+    const tableName = document.getElementById('setting-table-name').value.trim();
+    
+    if (!token || !baseId || !tableName) {
+        showSettingsStatus('Please fill in all fields', 'error');
+        return;
+    }
+    
+    // Test the connection
+    showSettingsStatus('Testing connection...', 'info');
+    
+    try {
+        const testResult = await testAirtableConnection(token, baseId, tableName);
+        if (testResult.success) {
+            saveAirtableSettings({ token, baseId, tableName });
+            updateSettingsButtonIndicator();
+            showSettingsStatus(`Connected! Found ${testResult.recordCount} records.`, 'success');
+            
+            // Reload candidates with new settings
+            setTimeout(async () => {
+                closeSettingsModal();
+                showLoadingState();
+                candidates = [];
+                nextOffset = null;
+                hasMoreCandidates = false;
+                currentCandidateId = null;
+                await loadCandidatesFromAPI();
+            }, 1000);
+        } else {
+            showSettingsStatus(testResult.error, 'error');
+        }
+    } catch (error) {
+        showSettingsStatus(`Connection failed: ${error.message}`, 'error');
+    }
+}
+
+async function testAirtableConnection(token, baseId, tableName) {
+    try {
+        const url = new URL(`https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`);
+        url.searchParams.set('pageSize', '1');
+        
+        const response = await fetch(url.toString(), {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            return { 
+                success: false, 
+                error: errorData.error?.message || `HTTP ${response.status}: ${response.statusText}` 
+            };
+        }
+        
+        const data = await response.json();
+        return { success: true, recordCount: data.records.length + (data.offset ? '+' : '') };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+// ============ Client-side Airtable Fetch ============
+
+function transformAirtableRecord(record) {
+    const fields = record.fields || {};
+    const candidate = {
+        id: record.id,
+        airtableId: record.id,
+        createdTime: record.createdTime
+    };
+
+    // Map Airtable fields to our internal field names
+    for (const [airtableField, internalField] of Object.entries(FIELD_MAPPINGS)) {
+        if (fields[airtableField] !== undefined) {
+            candidate[internalField] = fields[airtableField];
+        }
+    }
+
+    // Also include any unmapped fields directly
+    for (const [key, value] of Object.entries(fields)) {
+        if (!Object.keys(FIELD_MAPPINGS).includes(key)) {
+            const camelKey = key.replace(/[^a-zA-Z0-9]/g, ' ')
+                .split(' ')
+                .map((word, i) => i === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                .join('');
+            if (!candidate[camelKey]) {
+                candidate[camelKey] = value;
+            }
+        }
+    }
+
+    // Handle combined name field
+    if (!candidate.firstName && !candidate.lastName && candidate.name) {
+        const nameParts = candidate.name.split(' ');
+        candidate.firstName = nameParts[0] || '';
+        candidate.lastName = nameParts.slice(1).join(' ') || '';
+    }
+
+    // Provide defaults
+    candidate.firstName = candidate.firstName || 'Unknown';
+    candidate.lastName = candidate.lastName || '';
+    candidate.company = candidate.company || 'No Project';
+    candidate.email = candidate.email || '';
+    candidate.phone = candidate.phone || '';
+    candidate.location = candidate.location || '';
+    candidate.technical = candidate.technical || '';
+    candidate.previouslyApplied = candidate.previouslyApplied || '';
+    candidate.birthday = candidate.birthday || '';
+    candidate.schoolOrWork = candidate.schoolOrWork || '';
+    candidate.projectDescription = candidate.projectDescription || '';
+    candidate.problemSolving = candidate.problemSolving || '';
+    candidate.expertise = candidate.expertise || '';
+    candidate.competitors = candidate.competitors || '';
+    candidate.pastWork = candidate.pastWork || '';
+    candidate.nerdy = candidate.nerdy || '';
+    candidate.drives = candidate.drives || '';
+    candidate.nonTraditional = candidate.nonTraditional || '';
+    candidate.riskOrChallenge = candidate.riskOrChallenge || '';
+    candidate.website = candidate.website || '';
+    candidate.achievements = candidate.achievements || '';
+    candidate.videoLink = candidate.videoLink || '';
+    candidate.pitchVideo = candidate.pitchVideo || '';
+    candidate.cofounder = candidate.cofounder || '';
+    candidate.howHeard = candidate.howHeard || '';
+    candidate.helpNeeded = candidate.helpNeeded || '';
+    candidate.aiScore = candidate.aiScore || 50;
+
+    return candidate;
+}
+
+async function fetchFromAirtableDirect(offset = null) {
+    const settings = getAirtableSettings();
+    if (!settings) {
+        throw new Error('Airtable settings not configured');
+    }
+    
+    const { token, baseId, tableName } = settings;
+    const allRecords = [];
+    let currentOffset = offset;
+    const maxRecords = 500;
+    let recordsFetched = 0;
+    let nextOffsetResult = null;
+
+    while (recordsFetched < maxRecords) {
+        const pageSize = Math.min(100, maxRecords - recordsFetched);
+        
+        const url = new URL(`https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`);
+        url.searchParams.set('pageSize', pageSize.toString());
+        url.searchParams.set('sort[0][field]', 'Created');
+        url.searchParams.set('sort[0][direction]', 'desc');
+        
+        if (currentOffset) {
+            url.searchParams.set('offset', currentOffset);
+        }
+
+        const response = await fetch(url.toString(), {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(`Airtable API error: ${response.status} - ${errorData.error?.message || response.statusText}`);
+        }
+
+        const data = await response.json();
+        allRecords.push(...data.records);
+        recordsFetched += data.records.length;
+        
+        if (data.offset && recordsFetched < maxRecords) {
+            currentOffset = data.offset;
+        } else {
+            nextOffsetResult = data.offset || null;
+            break;
+        }
+        
+        if (!data.offset) break;
+    }
+
+    const transformedCandidates = allRecords.map(record => transformAirtableRecord(record));
+    
+    return {
+        success: true,
+        candidates: transformedCandidates,
+        offset: nextOffsetResult,
+        hasMore: !!nextOffsetResult
+    };
+}
+
+// ============ Loading State Functions ============
+
 function showLoadingState() {
     const listElement = document.getElementById('candidate-list');
-    listElement.innerHTML = '<div class="loading-state">Loading candidates from Airtable...</div>';
+    const source = hasValidSettings() ? 'browser' : 'server';
+    listElement.innerHTML = `<div class="loading-state">Loading candidates from Airtable (${source})...</div>`;
     document.getElementById('candidate-details').innerHTML = '<p class="empty-state">Loading candidates...</p>';
 }
 
@@ -49,11 +412,15 @@ function showErrorState(message) {
     document.getElementById('candidate-details').innerHTML = `
         <div class="error-state">
             <h3>Configuration Required</h3>
-            <p>Please ensure your <code>.env</code> file contains:</p>
+            <p>You can configure Airtable in two ways:</p>
+            <h4 style="margin-top: 16px;">Option 1: Use Settings (Browser)</h4>
+            <p>Click the <strong>⚙️ Settings</strong> button in the header to enter your Airtable credentials. They'll be stored securely in your browser.</p>
+            <h4 style="margin-top: 16px;">Option 2: Use Server (.env file)</h4>
+            <p>Create a <code>.env</code> file with:</p>
             <ul>
                 <li><code>AIRTABLE</code> - Your Airtable personal access token</li>
                 <li><code>AIRTABLE_BASE_ID</code> - Your Airtable base ID</li>
-                <li><code>AIRTABLE_TABLE_NAME</code> - Your table name (e.g., "Applications")</li>
+                <li><code>AIRTABLE_TABLE_NAME</code> - Your table name</li>
             </ul>
             <p>Then restart the server with <code>npm start</code></p>
         </div>
@@ -71,12 +438,22 @@ async function retryLoad() {
 }
 
 async function loadCandidatesFromAPI(offset = null) {
-    const url = offset ? `/api/candidates?offset=${encodeURIComponent(offset)}` : '/api/candidates';
-    const response = await fetch(url);
-    const data = await response.json();
+    let data;
     
-    if (!data.success) {
-        throw new Error(data.message || data.error || 'Unknown error');
+    // Check if browser settings are configured
+    if (hasValidSettings()) {
+        console.log('Using browser-side Airtable connection');
+        data = await fetchFromAirtableDirect(offset);
+    } else {
+        // Fall back to server API
+        console.log('Using server-side Airtable connection');
+        const url = offset ? `/api/candidates?offset=${encodeURIComponent(offset)}` : '/api/candidates';
+        const response = await fetch(url);
+        data = await response.json();
+        
+        if (!data.success) {
+            throw new Error(data.message || data.error || 'Unknown error');
+        }
     }
     
     if (offset) {
@@ -90,7 +467,8 @@ async function loadCandidatesFromAPI(offset = null) {
     nextOffset = data.offset;
     hasMoreCandidates = data.hasMore;
     
-    console.log(`Loaded ${data.candidates.length} candidates from Airtable (total: ${candidates.length}, hasMore: ${hasMoreCandidates})`);
+    const source = hasValidSettings() ? 'browser' : 'server';
+    console.log(`Loaded ${data.candidates.length} candidates via ${source} (total: ${candidates.length}, hasMore: ${hasMoreCandidates})`);
     
     // Now initialize the rest of the app
     loadStatuses();

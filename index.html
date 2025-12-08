@@ -63,6 +63,7 @@
                         <button class="zoom-btn" id="zoom-out" title="Decrease text size">A-</button>
                         <button class="zoom-btn" id="zoom-in" title="Increase text size">A+</button>
                         <button class="dark-mode-btn" id="dark-mode-toggle" title="Toggle dark mode">🌙</button>
+                        <button class="settings-btn" id="settings-toggle" title="Airtable Settings">⚙️</button>
                     </div>
                 </div>
                 </div>
@@ -75,6 +76,42 @@
                 <p class="empty-state">Select a candidate from the sidebar to view their application</p>
             </div>
         </main>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>Airtable Settings</h2>
+                <button class="modal-close" id="settings-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-description">
+                    Configure your Airtable credentials to fetch data directly in your browser. 
+                    These are stored locally and never sent to any server.
+                </p>
+                <div class="form-group">
+                    <label for="setting-airtable-token">Airtable Personal Access Token</label>
+                    <input type="password" id="setting-airtable-token" placeholder="pat_xxxxxxxxxxxxx">
+                    <small>Get yours at <a href="https://airtable.com/create/tokens" target="_blank">airtable.com/create/tokens</a></small>
+                </div>
+                <div class="form-group">
+                    <label for="setting-base-id">Base ID</label>
+                    <input type="text" id="setting-base-id" placeholder="appXXXXXXXXXXXXXX">
+                    <small>Found in your Airtable URL: airtable.com/<strong>BASE_ID</strong>/...</small>
+                </div>
+                <div class="form-group">
+                    <label for="setting-table-name">Table Name or ID</label>
+                    <input type="text" id="setting-table-name" placeholder="Applications or tblXXXXXXXXXX">
+                    <small>The name or ID of your applications table</small>
+                </div>
+                <div class="modal-status" id="settings-status"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="settings-clear">Clear Settings</button>
+                <button class="btn btn-primary" id="settings-save">Save & Connect</button>
+            </div>
+        </div>
     </div>
 
     <script src="aiScoring.js"></script>
