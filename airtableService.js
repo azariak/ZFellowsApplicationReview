@@ -235,9 +235,48 @@ async function fetchCandidates(limit = 500, offset = null) {
     };
 }
 
+/**
+ * Update a record in Airtable
+ * @param {string} recordId - The Airtable record ID
+ * @param {object} fields - The fields to update
+ */
+async function updateRecord(recordId, fields) {
+    const token = process.env.AIRTABLE;
+    const baseId = process.env.AIRTABLE_BASE_ID;
+    const tableName = process.env.AIRTABLE_TABLE_NAME || 'Applications';
+
+    if (!token) {
+        throw new Error('AIRTABLE token not configured.');
+    }
+    if (!baseId) {
+        throw new Error('AIRTABLE_BASE_ID not configured.');
+    }
+
+    const url = `${AIRTABLE_API_BASE}/${baseId}/${encodeURIComponent(tableName)}/${recordId}`;
+    
+    const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ fields })
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Airtable API error: ${response.status} - ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log(`Updated Airtable record ${recordId}:`, Object.keys(fields).join(', '));
+    return data;
+}
+
 module.exports = {
     fetchCandidates,
     fetchRecords,
     transformRecord,
+    updateRecord,
     FIELD_MAPPINGS
 };

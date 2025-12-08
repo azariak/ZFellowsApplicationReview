@@ -1,10 +1,13 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
-const { fetchCandidates } = require('./airtableService');
+const { fetchCandidates, updateRecord } = require('./airtableService');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Parse JSON bodies
+app.use(express.json());
 
 // Serve static files from the current directory
 app.use(express.static(__dirname));
@@ -28,6 +31,33 @@ app.get('/api/candidates', async (req, res) => {
             success: false, 
             error: error.message,
             message: 'Failed to fetch candidates from Airtable. Check your API token and configuration.'
+        });
+    }
+});
+
+// API endpoint to update a candidate in Airtable
+app.post('/api/candidates/update', async (req, res) => {
+    try {
+        const { recordId, fields } = req.body;
+        
+        if (!recordId || !fields) {
+            return res.status(400).json({
+                success: false,
+                error: 'Missing recordId or fields in request body'
+            });
+        }
+        
+        const result = await updateRecord(recordId, fields);
+        res.json({ 
+            success: true, 
+            record: result
+        });
+    } catch (error) {
+        console.error('Error updating candidate:', error.message);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message,
+            message: 'Failed to update candidate in Airtable.'
         });
     }
 });

@@ -579,6 +579,81 @@ function setStatus(candidateId, status, skipHistory = false) {
     renderCandidateList();
     updateStats();
     if (candidateId === currentCandidateId) updateStatusBadge(status);
+    
+    // Sync to Airtable (fire and forget, but log errors)
+    updateAirtableStage(candidateId, status).catch(err => {
+        console.error('Failed to sync to Airtable:', err.message);
+    });
+}
+
+// Map our internal status names to Airtable's Stage field values
+function mapStatusToAirtableStage(status) {
+    const mapping = {
+        'Stage 1: Review': 'Stage 1: Application Review',
+        'Stage 2: Interview': 'Stage 2: Interview',
+        'Rejection': 'Rejection',
+        'Stage 3: Acceptance': 'Stage 3: Acceptance',
+        'Stage 4: Fellowship Onboarding': 'Stage 4: Fellowship Onboarding'
+    };
+    return mapping[status] || status;
+}
+
+async function updateAirtableStage(recordId, status) {
+    const airtableStage = mapStatusToAirtableStage(status);
+    
+    if (hasValidSettings()) {
+        // Browser-side update
+        await updateAirtableDirect(recordId, { 'Stage': airtableStage });
+    } else {
+        // Server-side update
+        await updateAirtableViaServer(recordId, { 'Stage': airtableStage });
+    }
+}
+
+async function updateAirtableDirect(recordId, fields) {
+    const settings = getAirtableSettings();
+    if (!settings) {
+        throw new Error('Airtable settings not configured');
+    }
+    
+    const { token, baseId, tableName } = settings;
+    const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}/${recordId}`;
+    
+    const response = await fetch(url, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ fields })
+    });
+    
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Airtable update failed: ${response.status} - ${errorData.error?.message || response.statusText}`);
+    }
+    
+    console.log(`✓ Updated Airtable record ${recordId}: Stage = "${fields.Stage}"`);
+    return await response.json();
+}
+
+async function updateAirtableViaServer(recordId, fields) {
+    const response = await fetch('/api/candidates/update', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ recordId, fields })
+    });
+    
+    const data = await response.json();
+    
+    if (!data.success) {
+        throw new Error(data.error || 'Server update failed');
+    }
+    
+    console.log(`✓ Updated Airtable record ${recordId} via server: Stage = "${fields.Stage}"`);
+    return data;
 }
 
 function undoLastMove() {

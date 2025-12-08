@@ -41,7 +41,7 @@ PORT=3000
 ### 3. Required Airtable Token Scopes
 
 When creating your personal access token at https://airtable.com/create/tokens, ensure it has:
-- **Scope**: `data.records:read`
+- **Scopes**: `data.records:read` and `data.records:write` (write needed for status updates)
 - **Access**: Your applications base
 
 ### 4. Run the Application
