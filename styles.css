@@ -437,7 +437,7 @@ body {
     border-left: 1px solid var(--border-color);
 }
 
-.zoom-btn, .dark-mode-btn {
+.zoom-btn, .dark-mode-btn, .sort-order-btn {
     background: var(--button-bg);
     border: 1px solid var(--button-border);
     border-radius: 4px;
@@ -449,17 +449,50 @@ body {
     color: var(--text-secondary);
 }
 
-.zoom-btn:hover, .dark-mode-btn:hover {
+.zoom-btn:hover, .dark-mode-btn:hover, .sort-order-btn:hover {
     background: var(--button-hover-bg);
     border-color: var(--button-hover-border);
 }
 
-.zoom-btn:active, .dark-mode-btn:active {
+.zoom-btn:active, .dark-mode-btn:active, .sort-order-btn:active {
     transform: scale(0.95);
 }
 
 .dark-mode-btn {
     margin-left: 4px;
+}
+
+.sort-order-btn {
+    font-size: 11px;
+    padding: 3px 8px;
+    min-width: auto;
+}
+
+.header-controls {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.search-input {
+    font-size: 11px;
+    padding: 3px 8px;
+    border: 1px solid var(--button-border);
+    border-radius: 4px;
+    background: var(--button-bg);
+    color: var(--text-primary);
+    width: 80px;
+    transition: all 0.2s;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--active-border);
+    width: 120px;
+}
+
+.search-input::placeholder {
+    color: var(--text-tertiary);
 }
 
 .shortcut {

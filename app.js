@@ -7,6 +7,7 @@ let candidates = []; // Will be populated from API
 let nextOffset = null; // For pagination
 let hasMoreCandidates = false;
 let isLoadingMore = false;
+let sortOrder = 'newest'; // 'newest' (reverse chronological) or 'oldest' (chronological)
 const fontSizes = [10, 11, 13, 15, 17];
 
 // Airtable settings keys
@@ -68,12 +69,15 @@ async function init() {
     loadZoomLevel();
     loadDarkMode();
     loadSidebarWidth();
+    loadSortOrder();
     setupKeyboardShortcuts();
     setupResizeHandle();
     setupSettingsModal();
     document.getElementById('zoom-in').addEventListener('click', () => changeZoom(1));
     document.getElementById('zoom-out').addEventListener('click', () => changeZoom(-1));
     document.getElementById('dark-mode-toggle').addEventListener('click', toggleDarkMode);
+    document.getElementById('sort-order-toggle').addEventListener('click', toggleSortOrder);
+    document.getElementById('candidate-search').addEventListener('input', handleSearch);
     
     // Update settings button indicator
     updateSettingsButtonIndicator();
@@ -724,21 +728,76 @@ function updateDarkModeButton() {
     btn.title = isDark ? 'Switch to light mode' : 'Switch to dark mode';
 }
 
+function toggleSortOrder() {
+    sortOrder = sortOrder === 'newest' ? 'oldest' : 'newest';
+    localStorage.setItem('zfellows-sort-order', sortOrder);
+    updateSortOrderButton();
+    renderCandidateList();
+}
+
+function loadSortOrder() {
+    const saved = localStorage.getItem('zfellows-sort-order');
+    if (saved) {
+        sortOrder = saved;
+    }
+    updateSortOrderButton();
+}
+
+function updateSortOrderButton() {
+    const btn = document.getElementById('sort-order-toggle');
+    if (sortOrder === 'newest') {
+        btn.textContent = '↓ Newest';
+        btn.title = 'Showing newest first (click for oldest first)';
+    } else {
+        btn.textContent = '↑ Oldest';
+        btn.title = 'Showing oldest first (click for newest first)';
+    }
+}
+
+function handleSearch(e) {
+    const query = e.target.value.toLowerCase().trim();
+    if (!query) return;
+    
+    // Find first matching candidate
+    const match = candidates.find(c => {
+        const fullName = `${c.firstName} ${c.lastName}`.toLowerCase();
+        const company = (c.company || '').toLowerCase();
+        const email = (c.email || '').toLowerCase();
+        return fullName.includes(query) || 
+               company.includes(query) || 
+               email.includes(query);
+    });
+    
+    if (match) {
+        selectCandidate(match.id);
+        // Scroll to the candidate in the list
+        const candidateElement = document.querySelector('.candidate-item.active');
+        if (candidateElement) {
+            candidateElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+}
+
 function renderCandidateList() {
     const listElement = document.getElementById('candidate-list');
     listElement.innerHTML = '';
     
-    [...candidates].sort((a, b) => getAIScore(b.id) - getAIScore(a.id)).forEach(candidate => {
+    // Sort by createdTime based on sortOrder
+    const sortedCandidates = [...candidates].sort((a, b) => {
+        const timeA = new Date(a.createdTime || 0).getTime();
+        const timeB = new Date(b.createdTime || 0).getTime();
+        return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+    });
+    
+    sortedCandidates.forEach(candidate => {
         const stage = getStatus(candidate.id);
         const stageClass = getStageClass(stage);
-        const score = getAIScore(candidate.id);
         const item = document.createElement('div');
         item.className = `candidate-item ${currentCandidateId === candidate.id ? 'active' : ''}`;
         item.onclick = () => selectCandidate(candidate.id);
         item.innerHTML = `
             <div class="candidate-item-header">
                 <div class="candidate-item-name">${candidate.firstName} ${candidate.lastName}</div>
-                <div class="ai-score-badge">${score}</div>
             </div>
             <div class="candidate-item-footer">
                 <div class="candidate-item-project">${candidate.company}</div>

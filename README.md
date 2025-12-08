@@ -7,8 +7,8 @@ A streamlined dashboard for Cory Levy to review Z Fellows applications with Airt
 - Youtube embed
 - AI Score + option for chronological
 - All fields there
-- Settings for .env
 - Send data to airtable
+- Stage 1 and stage 1 review should be the same
 
 ## Setup
 

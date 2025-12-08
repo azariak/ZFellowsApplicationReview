@@ -30,7 +30,10 @@
             </div>
             <div class="candidate-list-header">
                 <span class="list-header-label">Candidates</span>
-                <span class="list-header-label">AI Score</span>
+                <div class="header-controls">
+                    <button class="sort-order-btn" id="sort-order-toggle" title="Toggle sort order">↓ Newest</button>
+                    <input type="text" class="search-input" id="candidate-search" placeholder="Search..." title="Search candidates">
+                </div>
             </div>
             <div class="candidate-list" id="candidate-list">
                 <!-- Candidates will be populated here -->
