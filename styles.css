@@ -240,7 +240,7 @@ body {
 
 .left-to-review-btn {
     width: 100%;
-    margin-top: 12px;
+    margin-top: 16px;
     padding: 8px;
     font-size: 13px;
     background: var(--button-bg);
@@ -248,8 +248,11 @@ body {
     border-radius: 6px;
     cursor: pointer;
     color: var(--text-secondary);
+    position: relative;
+    text-align: center;
 }
 .left-to-review-btn:hover { background: var(--button-hover-bg); }
+.help-icon { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--text-secondary); font-size: 10px; display: inline-flex; align-items: center; justify-content: center; cursor: help; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); }
 
 .candidate-item-name {
     font-weight: 600;
