@@ -11,6 +11,10 @@ A streamlined dashboard for Cory Levy to review Z Fellows applications with Airt
 - Stage 1 and stage 1 review should be the same
 - Host on CloudFlare with login?
 - Shortcut to expand, preview on hover
+- Left to review button
+- Shortcuts (J would go to next app and K would go to previous app)
+- Add feedback directly
+- Change direction to match airtable, always go towards recent
 
 ## Setup
 

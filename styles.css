@@ -238,6 +238,19 @@ body {
 .flag-btn:hover { color: var(--text-secondary); }
 .flag-btn.flagged { color: #e53935; }
 
+.left-to-review-btn {
+    width: 100%;
+    margin-top: 12px;
+    padding: 8px;
+    font-size: 13px;
+    background: var(--button-bg);
+    border: 1px solid var(--button-border);
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+.left-to-review-btn:hover { background: var(--button-hover-bg); }
+
 .candidate-item-name {
     font-weight: 600;
     font-size: 15px;

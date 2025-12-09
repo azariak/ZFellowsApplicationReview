@@ -585,6 +585,22 @@ function toggleFlag(candidateId, e) {
     renderCandidateList();
 }
 
+function jumpToLeftToReview() {
+    // Sort all candidates by time (newest first) to find most recent flagged
+    const sorted = [...candidates].sort((a, b) => new Date(b.createdTime || 0) - new Date(a.createdTime || 0));
+    const mostRecentFlagged = sorted.find(c => flaggedCandidates.has(c.id));
+    if (!mostRecentFlagged) return;
+    
+    // Switch to oldest-first and select the most recent flagged candidate
+    sortOrder = 'oldest';
+    localStorage.setItem('zfellows-sort-order', sortOrder);
+    updateSortOrderButton();
+    renderCandidateList();
+    
+    selectCandidate(mostRecentFlagged.id);
+    document.querySelector('.candidate-item.active')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 function getStatus(candidateId) {
     return normalizeStage(candidateStatuses[candidateId]);
 }
