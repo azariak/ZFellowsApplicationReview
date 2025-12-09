@@ -1004,6 +1004,9 @@ function setupKeyboardShortcuts() {
         }
         // Z for undo
         if (key === 'z' && !e.ctrlKey && !e.shiftKey) return undoLastMove();
+        // J for next app, K for previous app
+        if (key === 'j') return navigateToAdjacentCandidate(1);
+        if (key === 'k') return navigateToAdjacentCandidate(-1);
         if (!currentCandidateId) return;
         // Stage shortcuts: I = Interview, E = Rejection, P = Stage 1: Review
         const actions = { 
@@ -1016,6 +1019,40 @@ function setupKeyboardShortcuts() {
             moveToNextCandidate();
         }
     });
+}
+
+function navigateToAdjacentCandidate(direction) {
+    // Get the sorted candidates list (same order as displayed in sidebar)
+    const sortedCandidates = [...candidates].sort((a, b) => {
+        const timeA = new Date(a.createdTime || 0).getTime();
+        const timeB = new Date(b.createdTime || 0).getTime();
+        return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+    });
+    
+    if (sortedCandidates.length === 0) return;
+    
+    // Find current index in sorted list
+    const currentIndex = sortedCandidates.findIndex(c => c.id === currentCandidateId);
+    
+    // Calculate new index with wrapping
+    let newIndex;
+    if (currentIndex === -1) {
+        // No candidate selected, select first or last based on direction
+        newIndex = direction > 0 ? 0 : sortedCandidates.length - 1;
+    } else {
+        newIndex = currentIndex + direction;
+        // Wrap around
+        if (newIndex < 0) newIndex = sortedCandidates.length - 1;
+        if (newIndex >= sortedCandidates.length) newIndex = 0;
+    }
+    
+    selectCandidate(sortedCandidates[newIndex].id);
+    
+    // Scroll the selected candidate into view
+    const candidateElement = document.querySelector('.candidate-item.active');
+    if (candidateElement) {
+        candidateElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
 }
 
 function moveToNextCandidate() {

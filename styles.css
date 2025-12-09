@@ -363,8 +363,14 @@ body {
 .header-top {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: 16px;
+}
+
+.candidate-name-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .candidate-name-header {
@@ -448,16 +454,20 @@ body {
 
 .keyboard-shortcuts {
     display: flex;
-    gap: 16px;
+    gap: 10px;
     align-items: center;
+    font-size: 11px;
+}
+
+.keyboard-shortcuts kbd {
+    font-size: 10px;
+    padding: 1px 4px;
+    min-width: 14px;
 }
 
 .zoom-controls {
     display: flex;
     gap: 4px;
-    margin-left: 16px;
-    padding-left: 16px;
-    border-left: 1px solid var(--border-color);
 }
 
 .zoom-btn, .dark-mode-btn, .sort-order-btn {
