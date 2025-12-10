@@ -1055,6 +1055,14 @@ function setupKeyboardShortcuts() {
             if (notesInput) notesInput.focus();
             return;
         }
+        // O to toggle all link previews
+        if (key === 'o') {
+            if (document.querySelector('.mini-preview')) return hideMiniPreview(true);
+            document.querySelectorAll('.expand-btn').forEach(btn => showMiniPreview(btn, true));
+            return;
+        }
+        // Escape closes mini previews
+        if (e.key === 'Escape') return hideMiniPreview(true);
         if (!currentCandidateId) return;
         // Stage shortcuts: I = Interview, E = Rejection, P = Stage 1: Review
         const actions = { 
@@ -1229,25 +1237,31 @@ function handleIframeEscape(e) {
 
 // Mini preview on hover
 let miniPreviewTimeout;
-function showMiniPreview(btn) {
+let nextPreviewLeft = 0;
+function showMiniPreview(btn, multi) {
     clearTimeout(miniPreviewTimeout);
-    hideMiniPreview(true);
+    if (!multi) { hideMiniPreview(true); nextPreviewLeft = 0; }
     const url = btn.dataset.url;
     const rect = btn.getBoundingClientRect();
     const preview = document.createElement('div');
-    preview.id = 'mini-preview';
+    preview.className = 'mini-preview';
     preview.innerHTML = `<iframe src="${url}"></iframe>`;
-    preview.style.cssText = `position:fixed;top:${rect.bottom+5}px;left:${rect.left}px;width:400px;height:300px;z-index:9999;background:#fff;border:1px solid #ccc;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);overflow:hidden;`;
+    // Avoid overlap: use max of button position or next available slot
+    const left = Math.max(rect.left, nextPreviewLeft);
+    preview.style.cssText = `position:fixed;top:${rect.bottom+5}px;left:${left}px;width:400px;height:300px;z-index:9999;background:#fff;border:1px solid #ccc;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);overflow:hidden;`;
     preview.querySelector('iframe').style.cssText = 'width:100%;height:100%;border:none;';
     preview.onmouseenter = () => clearTimeout(miniPreviewTimeout);
-    preview.onmouseleave = () => hideMiniPreview();
+    preview.onmouseleave = () => { if (!multi) hideMiniPreview(); };
     document.body.appendChild(preview);
+    nextPreviewLeft = left + 410; // 400px width + 10px gap
 }
 
 function hideMiniPreview(immediate) {
     clearTimeout(miniPreviewTimeout);
-    if (immediate) return document.getElementById('mini-preview')?.remove();
-    miniPreviewTimeout = setTimeout(() => document.getElementById('mini-preview')?.remove(), 100);
+    nextPreviewLeft = 0;
+    const remove = () => document.querySelectorAll('.mini-preview').forEach(el => el.remove());
+    if (immediate) return remove();
+    miniPreviewTimeout = setTimeout(remove, 100);
 }
 
 // Expose candidates globally for aiScoring.js
