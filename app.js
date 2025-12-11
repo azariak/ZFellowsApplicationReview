@@ -11,6 +11,7 @@ let nextOffset = null; // For pagination
 let hasMoreCandidates = false;
 let isLoadingMore = false;
 let sortOrder = 'newest'; // 'newest' (reverse chronological) or 'oldest' (chronological)
+let pendingTimers = {}; // { candidateId: { timerId, endTime, status } }
 const fontSizes = [10, 11, 13, 15, 17];
 
 // Airtable settings keys
@@ -708,10 +709,25 @@ function setStatus(candidateId, status, skipHistory = false) {
     updateStats();
     if (candidateId === currentCandidateId) updateStatusBadge(status);
     
-    // Sync to Airtable (fire and forget, but log errors)
-    updateAirtableStage(candidateId, status).catch(err => {
-        console.error('Failed to sync to Airtable:', err.message);
-    });
+    // Cancel any existing pending timer for this candidate
+    if (pendingTimers[candidateId]) {
+        clearTimeout(pendingTimers[candidateId].timerId);
+        clearInterval(pendingTimers[candidateId].intervalId);
+        delete pendingTimers[candidateId];
+    }
+    
+    // Delay Airtable sync by 5 seconds with timer
+    const endTime = Date.now() + 5000;
+    const intervalId = setInterval(() => renderCandidateList(), 1000);
+    const timerId = setTimeout(() => {
+        clearInterval(intervalId);
+        delete pendingTimers[candidateId];
+        renderCandidateList();
+        updateAirtableStage(candidateId, status).catch(err => {
+            console.error('Failed to sync to Airtable:', err.message);
+        });
+    }, 5000);
+    pendingTimers[candidateId] = { timerId, intervalId, endTime, status };
 }
 
 // Map our internal status names to Airtable's Stage field values
@@ -792,6 +808,18 @@ function undoLastMove() {
     redoHistory.push(lastAction);
     candidateStatuses[lastAction.candidateId] = lastAction.oldStatus;
     saveStatuses();
+    
+    // Cancel pending Airtable sync if exists, otherwise sync the undo
+    if (pendingTimers[lastAction.candidateId]) {
+        clearTimeout(pendingTimers[lastAction.candidateId].timerId);
+        clearInterval(pendingTimers[lastAction.candidateId].intervalId);
+        delete pendingTimers[lastAction.candidateId];
+    } else {
+        // Timer already fired, sync the restored status to Airtable
+        updateAirtableStage(lastAction.candidateId, lastAction.oldStatus).catch(err => {
+            console.error('Failed to sync undo to Airtable:', err.message);
+        });
+    }
     
     // If this action hid the candidate, unhide it
     if (lastAction.wasHidden) {
@@ -936,12 +964,14 @@ function renderCandidateList() {
         const stageClass = getStageClass(stage);
         const isActive = currentCandidateId === candidate.id;
         const isFlagged = flaggedCandidates.has(candidate.id);
+        const pending = pendingTimers[candidate.id];
+        const timerHtml = pending ? `<span class="pending-timer">${Math.ceil((pending.endTime - Date.now()) / 1000)}s</span>` : '';
         const item = document.createElement('div');
         item.className = `candidate-item ${isActive ? 'active' : ''}`;
         item.onclick = () => selectCandidate(candidate.id);
         item.innerHTML = `
             <div class="candidate-item-header">
-                <div class="candidate-item-name">${candidate.firstName} ${candidate.lastName}</div>
+                <div class="candidate-item-name">${candidate.firstName} ${candidate.lastName}${timerHtml}</div>
                 <span class="flag-btn ${isFlagged ? 'flagged' : ''}" style="display:${isActive || isFlagged ? 'inline' : 'none'}" onclick="toggleFlag('${candidate.id}', event)">⚑</span>
             </div>
             <div class="candidate-item-footer">

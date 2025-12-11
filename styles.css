@@ -1217,3 +1217,11 @@ kbd {
     border-left: 3px solid var(--text-tertiary);
 }
 
+/* Pending timer for delayed Airtable sync */
+.pending-timer {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    margin-left: 6px;
+    font-weight: 500;
+}
+

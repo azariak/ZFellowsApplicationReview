@@ -11,7 +11,6 @@ A streamlined dashboard for Cory Levy to review Z Fellows applications with Airt
 - Stage 1 and stage 1 review should be the same
 - Host on CloudFlare with login instead of settings popup?
 - Shortcut to expand link with better regex, preview link on hover
-- Add feedback directly
 - Consider change direction to match airtable, always go towards recent
 - No previews for all sites blocking iframes, fix previews being cutoff when o clicked
 
