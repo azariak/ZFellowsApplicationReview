@@ -1164,3 +1164,56 @@ kbd {
     background: white;
 }
 
+/* Hidden candidates toggle */
+.hidden-toggle-container {
+    padding: 8px;
+    border-top: 1px solid var(--border-color);
+    margin-top: 8px;
+}
+
+.hidden-toggle-btn {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--button-bg);
+    border: 1px solid var(--button-border);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.hidden-toggle-btn:hover {
+    background: var(--button-hover-bg);
+    border-color: var(--button-hover-border);
+}
+
+.hidden-toggle-btn.active {
+    background: var(--button-hover-bg);
+}
+
+.hidden-candidates-section {
+    padding: 4px 8px 8px 8px;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    margin: 8px;
+    margin-top: 4px;
+}
+
+.hidden-candidates-section .candidate-item {
+    opacity: 0.7;
+}
+
+.hidden-candidates-section .candidate-item:hover {
+    opacity: 1;
+}
+
+.candidate-item.hidden-candidate {
+    border-left: 3px solid var(--text-tertiary);
+}
+

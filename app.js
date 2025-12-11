@@ -5,6 +5,8 @@ let redoHistory = [];
 let zoomLevel = 0;
 let candidates = []; // Will be populated from API
 let flaggedCandidates = new Set(); // Flagged candidates
+let hiddenCandidates = new Set(); // Locally rejected/hidden candidates (not synced to Airtable)
+let showHiddenToggle = false; // Whether to show hidden candidates
 let nextOffset = null; // For pagination
 let hasMoreCandidates = false;
 let isLoadingMore = false;
@@ -492,6 +494,7 @@ async function loadCandidatesFromAPI(offset = null) {
     loadStatuses();
     loadHistory();
     loadFlags();
+    loadHiddenCandidates();
     loadAIScores();
     renderCandidateList();
     updateStats();
@@ -574,6 +577,56 @@ function loadFlags() {
     if (saved) flaggedCandidates = new Set(JSON.parse(saved));
 }
 
+function loadHiddenCandidates() {
+    const saved = localStorage.getItem('zfellows-hidden');
+    if (saved) hiddenCandidates = new Set(JSON.parse(saved));
+}
+
+function saveHiddenCandidates() {
+    localStorage.setItem('zfellows-hidden', JSON.stringify([...hiddenCandidates]));
+}
+
+// Hide candidate locally (mark as rejected without syncing to Airtable)
+function hideCandidate(candidateId, skipHistory = false) {
+    const oldStatus = candidateStatuses[candidateId];
+    const newStatus = 'Rejection';
+    
+    if (!skipHistory && oldStatus !== newStatus) {
+        statusHistory.push({ 
+            candidateId, 
+            oldStatus, 
+            newStatus, 
+            timestamp: Date.now(),
+            wasHidden: !hiddenCandidates.has(candidateId) // Track if we're hiding
+        });
+        saveHistory();
+        redoHistory = [];
+    }
+    
+    candidateStatuses[candidateId] = newStatus;
+    hiddenCandidates.add(candidateId);
+    
+    saveStatuses();
+    saveHiddenCandidates();
+    renderCandidateList();
+    updateStats();
+    if (candidateId === currentCandidateId) updateStatusBadge(newStatus);
+    
+    // Note: NO Airtable sync for local rejections
+    console.log(`✓ Hidden candidate ${candidateId} locally (not synced to Airtable)`);
+}
+
+// Unhide a candidate (for undo)
+function unhideCandidate(candidateId) {
+    hiddenCandidates.delete(candidateId);
+    saveHiddenCandidates();
+}
+
+function toggleShowHidden() {
+    showHiddenToggle = !showHiddenToggle;
+    renderCandidateList();
+}
+
 function toggleFlag(candidateId, e) {
     e.stopPropagation();
     if (flaggedCandidates.has(candidateId)) {
@@ -627,6 +680,13 @@ function setStatus(candidateId, status, skipHistory = false) {
     }
     candidateStatuses[candidateId] = status;
     saveStatuses();
+    
+    // If status is changing away from Rejection, unhide the candidate
+    if (hiddenCandidates.has(candidateId) && !status.toLowerCase().includes('reject')) {
+        unhideCandidate(candidateId);
+        console.log(`✓ Unhid candidate ${candidateId} (status changed from Rejection)`);
+    }
+    
     renderCandidateList();
     updateStats();
     if (candidateId === currentCandidateId) updateStatusBadge(status);
@@ -715,6 +775,12 @@ function undoLastMove() {
     redoHistory.push(lastAction);
     candidateStatuses[lastAction.candidateId] = lastAction.oldStatus;
     saveStatuses();
+    
+    // If this action hid the candidate, unhide it
+    if (lastAction.wasHidden) {
+        unhideCandidate(lastAction.candidateId);
+    }
+    
     selectCandidate(lastAction.candidateId);
     renderCandidateList();
     updateStats();
@@ -728,6 +794,13 @@ function redoLastMove() {
     saveHistory();
     candidateStatuses[lastRedo.candidateId] = lastRedo.newStatus;
     saveStatuses();
+    
+    // If this action originally hid the candidate, re-hide it
+    if (lastRedo.wasHidden) {
+        hiddenCandidates.add(lastRedo.candidateId);
+        saveHiddenCandidates();
+    }
+    
     selectCandidate(lastRedo.candidateId);
     renderCandidateList();
     updateStats();
@@ -836,7 +909,12 @@ function renderCandidateList() {
         return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
     });
     
-    sortedCandidates.forEach(candidate => {
+    // Separate visible and hidden candidates
+    const visibleCandidates = sortedCandidates.filter(c => !hiddenCandidates.has(c.id));
+    const hiddenCandidatesList = sortedCandidates.filter(c => hiddenCandidates.has(c.id));
+    
+    // Render visible candidates
+    visibleCandidates.forEach(candidate => {
         const stage = getStatus(candidate.id);
         const stageClass = getStageClass(stage);
         const isActive = currentCandidateId === candidate.id;
@@ -867,6 +945,47 @@ function renderCandidateList() {
             </button>
         `;
         listElement.appendChild(loadMoreContainer);
+    }
+    
+    // Add "Show hidden" toggle if there are hidden candidates
+    if (hiddenCandidatesList.length > 0) {
+        const hiddenToggle = document.createElement('div');
+        hiddenToggle.className = 'hidden-toggle-container';
+        hiddenToggle.innerHTML = `
+            <button class="hidden-toggle-btn ${showHiddenToggle ? 'active' : ''}" onclick="toggleShowHidden()">
+                ${showHiddenToggle ? '▼' : '▶'} Hidden (${hiddenCandidatesList.length})
+            </button>
+        `;
+        listElement.appendChild(hiddenToggle);
+        
+        // Render hidden candidates if toggle is on
+        if (showHiddenToggle) {
+            const hiddenSection = document.createElement('div');
+            hiddenSection.className = 'hidden-candidates-section';
+            
+            hiddenCandidatesList.forEach(candidate => {
+                const stage = getStatus(candidate.id);
+                const stageClass = getStageClass(stage);
+                const isActive = currentCandidateId === candidate.id;
+                const isFlagged = flaggedCandidates.has(candidate.id);
+                const item = document.createElement('div');
+                item.className = `candidate-item hidden-candidate ${isActive ? 'active' : ''}`;
+                item.onclick = () => selectCandidate(candidate.id);
+                item.innerHTML = `
+                    <div class="candidate-item-header">
+                        <div class="candidate-item-name">${candidate.firstName} ${candidate.lastName}</div>
+                        <span class="flag-btn ${isFlagged ? 'flagged' : ''}" style="display:${isActive || isFlagged ? 'inline' : 'none'}" onclick="toggleFlag('${candidate.id}', event)">⚑</span>
+                    </div>
+                    <div class="candidate-item-footer">
+                        <div class="candidate-item-project">${candidate.company}</div>
+                        <div class="candidate-item-status ${stageClass}">${stage}</div>
+                    </div>
+                `;
+                hiddenSection.appendChild(item);
+            });
+            
+            listElement.appendChild(hiddenSection);
+        }
     }
 }
 
@@ -1064,10 +1183,15 @@ function setupKeyboardShortcuts() {
         // Escape closes mini previews
         if (e.key === 'Escape') return hideMiniPreview(true);
         if (!currentCandidateId) return;
-        // Stage shortcuts: I = Interview, E = Rejection, P = Stage 1: Review
+        // Stage shortcuts: I = Interview, E = Rejection (local only), P = Stage 1: Review
+        if (key === 'e') {
+            // E = Local rejection (hide candidate, don't sync to Airtable)
+            hideCandidate(currentCandidateId);
+            moveToNextCandidate();
+            return;
+        }
         const actions = { 
             i: 'Stage 2: Interview', 
-            e: 'Rejection', 
             p: 'Stage 1: Review' 
         };
         if (actions[key]) {
@@ -1079,11 +1203,16 @@ function setupKeyboardShortcuts() {
 
 function navigateToAdjacentCandidate(direction) {
     // Get the sorted candidates list (same order as displayed in sidebar)
-    const sortedCandidates = [...candidates].sort((a, b) => {
+    let sortedCandidates = [...candidates].sort((a, b) => {
         const timeA = new Date(a.createdTime || 0).getTime();
         const timeB = new Date(b.createdTime || 0).getTime();
         return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
     });
+    
+    // Filter out hidden candidates unless showHiddenToggle is on
+    if (!showHiddenToggle) {
+        sortedCandidates = sortedCandidates.filter(c => !hiddenCandidates.has(c.id));
+    }
     
     if (sortedCandidates.length === 0) return;
     
@@ -1113,18 +1242,22 @@ function navigateToAdjacentCandidate(direction) {
 
 function moveToNextCandidate() {
     const currentIndex = candidates.findIndex(c => c.id === currentCandidateId);
-    // Find next candidate in Stage 1: Review
-    const isStage1 = (id) => {
+    // Find next candidate in Stage 1: Review (excluding hidden candidates)
+    const isStage1AndVisible = (id) => {
+        if (hiddenCandidates.has(id)) return false;
         const status = getStatus(id).toLowerCase();
         return status.includes('stage 1') || status.includes('review');
     };
     for (let i = currentIndex + 1; i < candidates.length; i++) {
-        if (isStage1(candidates[i].id)) return selectCandidate(candidates[i].id);
+        if (isStage1AndVisible(candidates[i].id)) return selectCandidate(candidates[i].id);
     }
     for (let i = 0; i < currentIndex; i++) {
-        if (isStage1(candidates[i].id)) return selectCandidate(candidates[i].id);
+        if (isStage1AndVisible(candidates[i].id)) return selectCandidate(candidates[i].id);
     }
-    if (currentIndex < candidates.length - 1) selectCandidate(candidates[currentIndex + 1].id);
+    // If no Stage 1 candidates found, just go to next visible candidate
+    for (let i = currentIndex + 1; i < candidates.length; i++) {
+        if (!hiddenCandidates.has(candidates[i].id)) return selectCandidate(candidates[i].id);
+    }
 }
 
 function loadSidebarWidth() {
