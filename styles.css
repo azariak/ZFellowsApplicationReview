@@ -671,7 +671,7 @@ kbd {
 /* Scrollbar styling */
 .candidate-list::-webkit-scrollbar,
 .candidate-details::-webkit-scrollbar {
-    width: 4px;
+    width: 10px;
 }
 
 .candidate-list::-webkit-scrollbar-track,
@@ -682,7 +682,7 @@ kbd {
 .candidate-list::-webkit-scrollbar-thumb,
 .candidate-details::-webkit-scrollbar-thumb {
     background: #ccc;
-    border-radius: 2px;
+    border-radius: 5px;
 }
 
 .candidate-list::-webkit-scrollbar-thumb:hover,

@@ -13,7 +13,7 @@ A streamlined dashboard for Cory Levy to review Z Fellows applications with Airt
 - Shortcut to expand link with better regex, preview link on hover
 - Add feedback directly
 - Consider change direction to match airtable, always go towards recent
-- No previews for sites blocking iframes, fix previews being cutoff when o clicked
+- No previews for all sites blocking iframes, fix previews being cutoff when o clicked
 
 ## Setup
 

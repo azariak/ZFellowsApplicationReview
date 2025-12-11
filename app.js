@@ -495,6 +495,7 @@ async function loadCandidatesFromAPI(offset = null) {
     loadHistory();
     loadFlags();
     loadHiddenCandidates();
+    hideAirtableRejected(); // Auto-hide candidates with Rejection status from Airtable
     loadAIScores();
     renderCandidateList();
     updateStats();
@@ -584,6 +585,22 @@ function loadHiddenCandidates() {
 
 function saveHiddenCandidates() {
     localStorage.setItem('zfellows-hidden', JSON.stringify([...hiddenCandidates]));
+}
+
+// Automatically hide candidates that have Rejection status from Airtable
+function hideAirtableRejected() {
+    let count = 0;
+    candidates.forEach(c => {
+        const status = getStatus(c.id);
+        if (status && status.toLowerCase().includes('reject') && !hiddenCandidates.has(c.id)) {
+            hiddenCandidates.add(c.id);
+            count++;
+        }
+    });
+    if (count > 0) {
+        saveHiddenCandidates();
+        console.log(`✓ Auto-hid ${count} candidates with Rejection status from Airtable`);
+    }
 }
 
 // Hide candidate locally (mark as rejected without syncing to Airtable)
