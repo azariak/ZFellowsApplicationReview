@@ -10,7 +10,7 @@ let showHiddenToggle = false; // Whether to show hidden candidates
 let nextOffset = null; // For pagination
 let hasMoreCandidates = false;
 let isLoadingMore = false;
-let sortOrder = 'newest'; // 'newest' (reverse chronological) or 'oldest' (chronological)
+let sortOrder = 'oldest'; // 'newest' (reverse chronological) or 'oldest' (chronological)
 let pendingTimers = {}; // { candidateId: { timerId, endTime, status } }
 const fontSizes = [10, 11, 13, 15, 17];
 
@@ -520,6 +520,9 @@ async function loadMoreCandidates() {
     
     try {
         await loadCandidatesFromAPI(nextOffset);
+        // Scroll to bottom of candidate list
+        const list = document.getElementById('candidate-list');
+        list.scrollTop = list.scrollHeight;
     } catch (error) {
         console.error('Failed to load more candidates:', error);
         if (loadMoreBtn) {
