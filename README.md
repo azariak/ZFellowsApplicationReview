@@ -4,8 +4,8 @@ A streamlined dashboard for Cory Levy to review Z Fellows applications with Airt
 
 
 ## TODO
-- Youtube embed
 - AI Score
+
 - Ensure all fields appear (include: other names, fields only filled in some applications)
 - Host on CloudFlare with login instead of settings popup?
 - Shortcut to expand link with better regex, preview link on hover
