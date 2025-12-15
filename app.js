@@ -534,6 +534,19 @@ async function loadMoreCandidates() {
     }
 }
 
+function calculateAge(birthday) {
+    if (!birthday) return '';
+    const birthDate = new Date(birthday);
+    if (isNaN(birthDate.getTime())) return '';
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
+    return age;
+}
+
 function normalizeStage(stage) {
     if (!stage) return 'Stage 1: Review';
     // Convert old values
@@ -1060,7 +1073,11 @@ function selectCandidate(candidateId) {
     currentCandidateId = candidateId;
     const candidate = candidates.find(c => c.id === candidateId);
     if (!candidate) return;
-    document.getElementById('candidate-name').textContent = `${candidate.firstName} ${candidate.lastName}`;
+    
+    const age = calculateAge(candidate.birthday);
+    const ageString = age ? ` (${age})` : '';
+    document.getElementById('candidate-name').textContent = `${candidate.firstName} ${candidate.lastName}${ageString}`;
+    
     updateStatusBadge(getStatus(candidateId));
     updateHeaderInfo(candidate);
     renderCandidateDetails(candidate);
@@ -1071,7 +1088,6 @@ function updateHeaderInfo(candidate) {
     document.getElementById('header-info').innerHTML = `
         <div class="header-info-item"><span class="header-info-label">Email:</span><span class="header-info-value">${candidate.email}</span></div>
         <div class="header-info-item"><span class="header-info-label">Phone:</span><span class="header-info-value">${candidate.phone}</span></div>
-        <div class="header-info-item"><span class="header-info-label">Birthday:</span><span class="header-info-value">${candidate.birthday}</span></div>
         <div class="header-info-item"><span class="header-info-label">Location:</span><span class="header-info-value">${candidate.location}</span></div>
         <div class="header-info-item"><span class="header-info-label">Technical:</span><span class="header-info-value">${candidate.technical}</span></div>
         <div class="header-info-item"><span class="header-info-label">Previously Applied:</span><span class="header-info-value">${candidate.previouslyApplied}</span></div>
