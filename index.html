@@ -12,7 +12,21 @@
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <h2>Z Fellows</h2>
+                <div class="header-row">
+                    <h2>Z Fellows</h2>
+                    <div class="mini-timer" id="mini-timer">
+                        <div class="timer-circle-container">
+                            <svg class="timer-svg" width="26" height="26" viewBox="0 0 26 26">
+                                <circle class="timer-bg" cx="13" cy="13" r="11"></circle>
+                                <circle class="timer-progress" id="timer-progress" cx="13" cy="13" r="11"></circle>
+                            </svg>
+                            <button id="timer-toggle-btn" class="timer-toggle-btn" title="Start">▶</button>
+                        </div>
+                        <div class="timer-display-container">
+                            <span id="timer-display" class="timer-value" contenteditable="true" spellcheck="false">30</span><span class="timer-unit">s</span>
+                        </div>
+                    </div>
+                </div>
                 <div class="stats">
                     <div class="stat">
                         <span class="stat-label">Stage 1:</span>
@@ -121,6 +135,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <script src="aiScoring.js"></script>
     <script src="app.js"></script>
 </body>

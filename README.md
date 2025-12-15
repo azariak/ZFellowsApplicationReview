@@ -12,6 +12,8 @@ A streamlined dashboard for Cory Levy to review Z Fellows applications with Airt
 - No previews for all sites blocking iframes, fix previews being cutoff when o clicked
 - Fix search bug + search for hidden candidates
 - Write tests
+- Only allow one flag
+- Gamification: Show the # left to review
 
 ## Setup
 

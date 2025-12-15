@@ -1226,3 +1226,95 @@ kbd {
     font-weight: 500;
 }
 
+/* Mini Timer */
+.mini-timer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-tertiary);
+    padding: 4px 8px;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
+    margin-left: auto;
+}
+
+.timer-circle-container {
+    position: relative;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.timer-svg {
+    transform: rotate(-90deg);
+}
+
+.timer-bg {
+    fill: none;
+    stroke: var(--border-light);
+    stroke-width: 3;
+}
+
+.timer-progress {
+    fill: none;
+    stroke: var(--active-border);
+    stroke-width: 3;
+    stroke-dasharray: 69.12;
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 0.1s linear;
+}
+
+.timer-toggle-btn {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s, background 0.2s;
+}
+
+.timer-circle-container:hover .timer-toggle-btn {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.8);
+}
+.timer-toggle-btn:hover {
+    color: var(--active-border);
+}
+
+.timer-display-container {
+    display: flex;
+    align-items: baseline;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.timer-value {
+    outline: none;
+    min-width: 16px;
+    text-align: right;
+    cursor: text;
+    border-bottom: 1px dashed transparent;
+}
+.timer-value:focus {
+    border-bottom-color: var(--active-border);
+}
+
+.timer-unit {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-left: 2px;
+}

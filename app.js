@@ -82,6 +82,7 @@ async function init() {
     setupKeyboardShortcuts();
     setupResizeHandle();
     setupSettingsModal();
+    initTimer();
     document.getElementById('zoom-in').addEventListener('click', () => changeZoom(1));
     document.getElementById('zoom-out').addEventListener('click', () => changeZoom(-1));
     document.getElementById('dark-mode-toggle').addEventListener('click', toggleDarkMode);
@@ -272,6 +273,137 @@ async function testAirtableConnection(token, baseId, tableName) {
     } catch (error) {
         return { success: false, error: error.message };
     }
+}
+
+// ============ Mini Timer Functions ============
+let timerInterval = null;
+let timerRunning = false;
+let timerDuration = 30;
+let timerTimeLeft = 30;
+
+function initTimer() {
+    const toggleBtn = document.getElementById('timer-toggle-btn');
+    const timerDisplay = document.getElementById('timer-display');
+    
+    // Initial display
+    updateTimerUI();
+    
+    toggleBtn.addEventListener('click', toggleTimer);
+    
+    // Handle content editable changes
+    timerDisplay.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            timerDisplay.blur();
+        }
+    });
+    
+    timerDisplay.addEventListener('blur', () => {
+        const val = parseInt(timerDisplay.textContent.replace(/[^0-9]/g, ''));
+        if (!isNaN(val) && val > 0) {
+            timerDuration = val;
+            if (!timerRunning) {
+                timerTimeLeft = timerDuration;
+                updateTimerUI();
+            }
+        } else {
+            // Revert invalid input
+            timerDisplay.textContent = timerDuration;
+        }
+    });
+}
+
+function toggleTimer() {
+    if (timerRunning) {
+        pauseTimer();
+    } else {
+        startTimer();
+    }
+}
+
+function startTimer() {
+    if (timerRunning) return;
+    
+    timerRunning = true;
+    document.getElementById('timer-toggle-btn').textContent = '⏸'; // Pause icon
+    document.getElementById('timer-toggle-btn').title = 'Pause';
+    
+    // If starting from 0 (completed), reset first
+    if (timerTimeLeft <= 0) {
+        timerTimeLeft = timerDuration;
+    }
+    
+    const startTime = Date.now();
+    const startLeft = timerTimeLeft;
+    
+    timerInterval = setInterval(() => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        timerTimeLeft = Math.max(0, startLeft - elapsed);
+        
+        updateTimerUI();
+        
+        if (timerTimeLeft <= 0) {
+            completeTimer();
+        }
+    }, 50); // High frequency for smooth circle update
+}
+
+function pauseTimer() {
+    timerRunning = false;
+    clearInterval(timerInterval);
+    document.getElementById('timer-toggle-btn').textContent = '▶';
+    document.getElementById('timer-toggle-btn').title = 'Start';
+}
+
+function resetTimer() {
+    pauseTimer();
+    timerTimeLeft = timerDuration;
+    updateTimerUI();
+}
+
+function updateTimerUI() {
+    // Update text (only if not focused to avoid cursor jumping)
+    const display = document.getElementById('timer-display');
+    if (document.activeElement !== display) {
+        display.textContent = Math.ceil(timerTimeLeft);
+    }
+    
+    // Update circle progress
+    const circle = document.getElementById('timer-progress');
+    const circumference = 69.12; // 2 * PI * 11
+    const progress = 1 - (timerTimeLeft / timerDuration);
+    const offset = circumference * progress;
+    circle.style.strokeDashoffset = offset;
+}
+
+function completeTimer() {
+    pauseTimer();
+    
+    // Confetti!
+    if (window.confetti) {
+        const timer = document.getElementById('mini-timer');
+        if (timer) {
+            const rect = timer.getBoundingClientRect();
+            const x = (rect.left + rect.width / 2) / window.innerWidth;
+            const y = (rect.top - 30) / window.innerHeight;
+            
+            window.confetti({
+                particleCount: 40,
+                spread: 60,
+                origin: { x, y },
+                colors: ['#2196F3', '#4CAF50', '#FFC107', '#E91E63'],
+                disableForReducedMotion: true,
+                zIndex: 2000,
+                scalar: 0.8
+            });
+        }
+    }
+    
+    // Auto restart after a short delay
+    setTimeout(() => {
+        resetTimer();
+        startTimer();
+    }, 1500);
 }
 
 // ============ Client-side Airtable Fetch ============
