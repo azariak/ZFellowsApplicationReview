@@ -1239,7 +1239,28 @@ function renderCandidateDetails(c) {
         // Sites that block iframes
         const noExpandSites = ['linkedin', 'github', 'youtube', 'youtu.be', 'twitter', 'x.com', 'facebook', 'instagram', 'tiktok', 'medium', 'substack', 'notion.so', 'figma', 'dribbble', 'behance', 'pinterest', 'reddit', 'discord', 'slack', 'dropbox', 'google.com', 'docs.google', 'drive.google'];
         // Replace all URLs with clickable links + expand button (if allowed)
-        const formatted = text.replace(urlRegex, (url) => {
+        const formatted = text.replace(urlRegex, (url, offset, string) => {
+            // Don't linkify email addresses (domains preceded by @)
+            if (offset > 0 && string[offset - 1] === '@') {
+                return url;
+            }
+
+            // Don't linkify if match is part of an email address (e.g. "gmail.com" in "bob@gmail.com")
+            // Check if there's an '@' symbol in the word preceding the match
+            // Look backward from offset until we hit a space or start of string
+            let i = offset - 1;
+            while (i >= 0 && !/\s/.test(string[i])) {
+                if (string[i] === '@') {
+                    return url;
+                }
+                i--;
+            }
+
+            // Don't linkify if followed immediately by @ (local part of email)
+            if (offset + url.length < string.length && string[offset + url.length] === '@') {
+                return url;
+            }
+
             // Ensure URL has protocol for href
             const href = url.match(/^https?:\/\//i) ? url : `https://${url}`;
             const urlLower = url.toLowerCase();
@@ -1286,6 +1307,38 @@ function renderCandidateDetails(c) {
         ['Email', c.email],
         ['Phone', c.phone],
     ];
+
+    // Identify fields already displayed to avoid duplication
+    const displayedFields = new Set([
+        'id', 'airtableId', 'createdTime', 'aiScore', 'name', // Internal/System
+        'firstName', 'lastName', // Header title
+        'location', 'technical', 'previouslyApplied', // Header info
+        'coryNotes', // Feedback section
+        // Fields in sections array above:
+        'personalLinks', 'company', 'decision', 
+        'coryOverallScore', 'coryEnergy', 'corySmart', 'coryStorytelling',
+        'schoolOrWork', 'projectDescription', 'problemSolving', 'expertise',
+        'competitors', 'pastWork', 'nerdy', 'drives', 'nonTraditional',
+        'riskOrChallenge', 'website', 'achievements', 'videoLink', 'pitchVideo',
+        'cofounder', 'howHeard', 'helpNeeded',
+        'stage2Calendar', 'stage3Schedule', 'stage4Onboarding', 
+        'upcomingCohortDate', 'waitlistUpdate',
+        'email', 'phone', 'stage'
+    ]);
+
+    // Find and add any remaining fields
+    const extraFields = Object.keys(c)
+        .filter(key => !displayedFields.has(key) && c[key] && typeof c[key] !== 'object');
+
+    extraFields.forEach(key => {
+        // Convert camelCase to Title Case
+        const label = key
+            .replace(/([A-Z])/g, ' $1') // Add space before capitals
+            .replace(/^./, str => str.toUpperCase()); // Capitalize first letter
+            
+        // Add to sections
+        sections.push([label, formatLinks(String(c[key]))]);
+    });
     
     // Filter out empty sections
     const filteredSections = sections.filter(([title, content]) => content && String(content).trim());
