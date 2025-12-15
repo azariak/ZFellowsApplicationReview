@@ -798,6 +798,7 @@ function toggleFlag(candidateId, e) {
     if (flaggedCandidates.has(candidateId)) {
         flaggedCandidates.delete(candidateId);
     } else {
+        flaggedCandidates.clear(); // Only allow one flag at a time
         flaggedCandidates.add(candidateId);
     }
     localStorage.setItem('zfellows-flags', JSON.stringify([...flaggedCandidates]));
