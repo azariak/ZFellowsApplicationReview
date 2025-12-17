@@ -1402,6 +1402,39 @@ async function saveCoryNotes(candidateId, notes) {
     }
 }
 
+function checkAndMoveFlag() {
+    if (flaggedCandidates.size === 0) return;
+    const flaggedId = [...flaggedCandidates][0];
+    
+    // Sort all candidates (ignoring hidden status for index calculation unless shown)
+    const sorted = [...candidates].sort((a, b) => {
+        const timeA = new Date(a.createdTime || 0).getTime();
+        const timeB = new Date(b.createdTime || 0).getTime();
+        return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+    });
+    
+    const flaggedIndex = sorted.findIndex(c => c.id === flaggedId);
+    if (flaggedIndex === -1) return;
+    
+    // Find the next candidate that would be visited (the next visible one)
+    let nextVisibleId = null;
+    
+    for (let i = flaggedIndex + 1; i < sorted.length; i++) {
+        const c = sorted[i];
+        if (showHiddenToggle || !hiddenCandidates.has(c.id)) {
+            nextVisibleId = c.id;
+            break;
+        }
+    }
+    
+    if (nextVisibleId && nextVisibleId === currentCandidateId) {
+        flaggedCandidates.clear();
+        flaggedCandidates.add(currentCandidateId);
+        localStorage.setItem('zfellows-flags', JSON.stringify([...flaggedCandidates]));
+        // Note: renderCandidateList will be called by the action that follows
+    }
+}
+
 function setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -1437,6 +1470,7 @@ function setupKeyboardShortcuts() {
             // E = Local rejection (hide candidate, don't sync to Airtable)
             hideCandidate(currentCandidateId);
             moveToNextCandidate();
+            checkAndMoveFlag(); // Move flag after hiding/moving so it lands on the next VISIBLE candidate
             return;
         }
         const actions = { 
@@ -1446,6 +1480,7 @@ function setupKeyboardShortcuts() {
         if (actions[key]) {
             setStatus(currentCandidateId, actions[key]);
             moveToNextCandidate();
+            checkAndMoveFlag();
         }
     });
 }
@@ -1490,22 +1525,49 @@ function navigateToAdjacentCandidate(direction) {
 }
 
 function moveToNextCandidate() {
-    const currentIndex = candidates.findIndex(c => c.id === currentCandidateId);
-    // Find next candidate in Stage 1: Review (excluding hidden candidates)
-    const isStage1AndVisible = (id) => {
-        if (hiddenCandidates.has(id)) return false;
-        const status = getStatus(id).toLowerCase();
+    // Sort candidates to match visual order
+    const sortedCandidates = [...candidates].sort((a, b) => {
+        const timeA = new Date(a.createdTime || 0).getTime();
+        const timeB = new Date(b.createdTime || 0).getTime();
+        return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+    });
+
+    const currentIndex = sortedCandidates.findIndex(c => c.id === currentCandidateId);
+    if (currentIndex === -1) return;
+
+    // Helper to check if candidate is valid next target
+    const isStage1AndVisible = (c) => {
+        if (hiddenCandidates.has(c.id)) return false;
+        const status = getStatus(c.id).toLowerCase();
         return status.includes('stage 1') || status.includes('review');
     };
-    for (let i = currentIndex + 1; i < candidates.length; i++) {
-        if (isStage1AndVisible(candidates[i].id)) return selectCandidate(candidates[i].id);
+
+    // Helper to select and scroll
+    const selectAndScroll = (id) => {
+        selectCandidate(id);
+        const el = document.querySelector('.candidate-item.active');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
+    // 1. Look for next Stage 1 candidate (downwards)
+    for (let i = currentIndex + 1; i < sortedCandidates.length; i++) {
+        if (isStage1AndVisible(sortedCandidates[i])) {
+            return selectAndScroll(sortedCandidates[i].id);
+        }
     }
+
+    // 2. Wrap around: Look for Stage 1 candidate from top (upwards)
     for (let i = 0; i < currentIndex; i++) {
-        if (isStage1AndVisible(candidates[i].id)) return selectCandidate(candidates[i].id);
+        if (isStage1AndVisible(sortedCandidates[i])) {
+            return selectAndScroll(sortedCandidates[i].id);
+        }
     }
-    // If no Stage 1 candidates found, just go to next visible candidate
-    for (let i = currentIndex + 1; i < candidates.length; i++) {
-        if (!hiddenCandidates.has(candidates[i].id)) return selectCandidate(candidates[i].id);
+
+    // 3. If no Stage 1 candidates found, just go to next visible candidate (downwards)
+    for (let i = currentIndex + 1; i < sortedCandidates.length; i++) {
+        if (!hiddenCandidates.has(sortedCandidates[i].id)) {
+            return selectAndScroll(sortedCandidates[i].id);
+        }
     }
 }
 

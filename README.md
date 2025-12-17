@@ -12,6 +12,7 @@ A streamlined dashboard for Cory Levy to review Z Fellows applications with Airt
 - Fix search bug + search for hidden candidates
 - Write tests
 - Gamification: Show the # left to review
+- Fix flag move down with reject, make flag move down instant
 
 ## Setup
 
