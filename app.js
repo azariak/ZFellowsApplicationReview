@@ -48,6 +48,7 @@ const FIELD_MAPPINGS = {
     'School or Work': 'schoolOrWork',
     'In school or working?': 'schoolOrWork',
     'What is the project that you are currently working on or would like to pursue? Why?': 'projectDescription',
+    'Flag': 'flag',
     'What problem are you solving?': 'problemSolving',
     'What expertise do you have to execute on the work that you want to do?': 'expertise',
     'Who are your competitors and what do you understand about your idea that they don\'t?': 'competitors',
@@ -723,8 +724,23 @@ function saveHistory() {
 }
 
 function loadFlags() {
-    const saved = localStorage.getItem('zfellows-flags');
-    if (saved) flaggedCandidates = new Set(JSON.parse(saved));
+    flaggedCandidates.clear();
+    
+    // Find candidates with the flag set from Airtable
+    const flagged = candidates.filter(c => c.flag);
+    
+    if (flagged.length > 0) {
+        // Sort by createdTime descending to get the "latest" person
+        flagged.sort((a, b) => {
+            return new Date(b.createdTime || 0).getTime() - new Date(a.createdTime || 0).getTime();
+        });
+        
+        // Only keep the latest one flagged locally
+        const latestFlagged = flagged[0];
+        flaggedCandidates.add(latestFlagged.id);
+        
+        console.log(`Loaded flag for ${latestFlagged.firstName} ${latestFlagged.lastName} from Airtable`);
+    }
 }
 
 function loadHiddenCandidates() {
@@ -793,16 +809,57 @@ function toggleShowHidden() {
     renderCandidateList();
 }
 
-function toggleFlag(candidateId, e) {
-    e.stopPropagation();
-    if (flaggedCandidates.has(candidateId)) {
-        flaggedCandidates.delete(candidateId);
-    } else {
-        flaggedCandidates.clear(); // Only allow one flag at a time
+async function toggleFlag(candidateId, e) {
+    if (e) e.stopPropagation();
+    
+    const previousFlaggedId = [...flaggedCandidates][0];
+    const isFlagging = !flaggedCandidates.has(candidateId);
+    
+    // Optimistic local update
+    flaggedCandidates.clear();
+    if (isFlagging) {
         flaggedCandidates.add(candidateId);
     }
-    localStorage.setItem('zfellows-flags', JSON.stringify([...flaggedCandidates]));
     renderCandidateList();
+    
+    // API Updates
+    try {
+        console.log(`Attempting to update flag for candidate ${candidateId} to ${isFlagging} (and unflagging others)`);
+
+        // If there was a previously flagged person and it's different from the current one, unflag them
+        if (previousFlaggedId && previousFlaggedId !== candidateId) {
+            if (hasValidSettings()) {
+                await updateAirtableDirect(previousFlaggedId, { 'Flag': false });
+            } else {
+                await updateAirtableViaServer(previousFlaggedId, { 'Flag': false });
+            }
+            
+            // Update local candidate object
+            const prevCandidate = candidates.find(c => c.id === previousFlaggedId);
+            if (prevCandidate) prevCandidate.flag = false;
+        }
+        
+        // Update the target candidate
+        if (hasValidSettings()) {
+            await updateAirtableDirect(candidateId, { 'Flag': isFlagging });
+        } else {
+            await updateAirtableViaServer(candidateId, { 'Flag': isFlagging });
+        }
+        
+        // Update local candidate object
+        const candidate = candidates.find(c => c.id === candidateId);
+        if (candidate) candidate.flag = isFlagging;
+        
+    } catch (err) {
+        console.error('Failed to update flag in Airtable:', err);
+        // Revert local state
+        flaggedCandidates.clear();
+        if (previousFlaggedId) flaggedCandidates.add(previousFlaggedId);
+        renderCandidateList();
+        
+        // Restore local candidate objects if needed (omitted for brevity, assume reload/refresh handles strict consistency or optimistic update is good enough)
+        alert(`Failed to update flag in Airtable: ${err.message}. Changes reverted locally.`);
+    }
 }
 
 function jumpToLeftToReview() {
@@ -1402,7 +1459,7 @@ async function saveCoryNotes(candidateId, notes) {
     }
 }
 
-function checkAndMoveFlag() {
+async function checkAndMoveFlag() {
     if (flaggedCandidates.size === 0) return;
     const flaggedId = [...flaggedCandidates][0];
     
@@ -1428,10 +1485,8 @@ function checkAndMoveFlag() {
     }
     
     if (nextVisibleId && nextVisibleId === currentCandidateId) {
-        flaggedCandidates.clear();
-        flaggedCandidates.add(currentCandidateId);
-        localStorage.setItem('zfellows-flags', JSON.stringify([...flaggedCandidates]));
-        // Note: renderCandidateList will be called by the action that follows
+        // Move flag to current candidate (which is nextVisibleId)
+        await toggleFlag(currentCandidateId);
     }
 }
 

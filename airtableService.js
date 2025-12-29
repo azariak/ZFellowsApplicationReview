@@ -72,7 +72,10 @@ const FIELD_MAPPINGS = {
     'How did you hear about Z Fellows?': 'howHeard',
     'How did you hear about ZF?': 'howHeard',
     'What help do you need?': 'helpNeeded',
-    'Help Needed': 'helpNeeded'
+    'Help Needed': 'helpNeeded',
+    
+    // Internal flags
+    'Flag': 'flag'
 };
 
 /**
