@@ -4,13 +4,11 @@ A streamlined dashboard for Cory Levy to review Z Fellows applications with Airt
 
 
 ## TODO
-- Sort by AI Score
 - Host on CloudFlare with login instead of settings popup?
 - Shortcut to expand link with better regex, preview link on hover
 - No previews for all sites blocking iframes, fix previews being cutoff when o clicked
 - Fix search bug + search for hidden candidates
 - Write tests
-- Gamification: Show the # left to review
 - Fix flag move down with reject, make flag move down instant
 - Off by one error causing non display of most recent app
 

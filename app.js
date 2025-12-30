@@ -1303,6 +1303,35 @@ function renderCandidateList() {
             listElement.appendChild(hiddenSection);
         }
     }
+    
+    updateLeftToReviewCount();
+}
+
+function updateLeftToReviewCount() {
+    const countSpan = document.getElementById('left-to-review-count');
+    if (!countSpan) return;
+
+    // Find the most recent flagged candidate
+    // Sort by newest first to easily find the "cutoff"
+    const sortedByTime = [...candidates].sort((a, b) => new Date(b.createdTime || 0) - new Date(a.createdTime || 0));
+    const flagIndex = sortedByTime.findIndex(c => flaggedCandidates.has(c.id));
+
+    if (flagIndex === -1) {
+        countSpan.textContent = '';
+        return;
+    }
+
+    // Count visible candidates newer than the flag
+    // (Indices 0 to flagIndex - 1 are newer)
+    let count = 0;
+    for (let i = 0; i < flagIndex; i++) {
+        const c = sortedByTime[i];
+        if (!hiddenCandidates.has(c.id)) {
+            count++;
+        }
+    }
+
+    countSpan.textContent = ` (${count})`;
 }
 
 function updateStats() {
