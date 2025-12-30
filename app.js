@@ -87,7 +87,7 @@ async function init() {
     document.getElementById('zoom-in').addEventListener('click', () => changeZoom(1));
     document.getElementById('zoom-out').addEventListener('click', () => changeZoom(-1));
     document.getElementById('dark-mode-toggle').addEventListener('click', toggleDarkMode);
-    document.getElementById('sort-order-toggle').addEventListener('click', toggleSortOrder);
+    document.getElementById('sort-order-select').addEventListener('change', handleSortChange);
     document.getElementById('candidate-search').addEventListener('input', handleSearch);
     
     // Update settings button indicator
@@ -866,12 +866,25 @@ function jumpToLeftToReview() {
     // Sort all candidates by time (newest first) to find most recent flagged
     const sorted = [...candidates].sort((a, b) => new Date(b.createdTime || 0) - new Date(a.createdTime || 0));
     const mostRecentFlagged = sorted.find(c => flaggedCandidates.has(c.id));
+    
+    // Highlight the button
+    document.querySelector('.left-to-review-btn').classList.add('active');
+    
+    // Add "Sort by AI score" option if not present
+    const select = document.getElementById('sort-order-select');
+    if (!select.querySelector('option[value="ai-score"]')) {
+        const option = document.createElement('option');
+        option.value = 'ai-score';
+        option.textContent = 'Sort by AI Score';
+        select.appendChild(option);
+    }
+
     if (!mostRecentFlagged) return;
     
     // Switch to oldest-first and select the most recent flagged candidate
     sortOrder = 'oldest';
     localStorage.setItem('zfellows-sort-order', sortOrder);
-    updateSortOrderButton();
+    updateSortOrderSelect();
     renderCandidateList();
     
     selectCandidate(mostRecentFlagged.id);
@@ -1099,10 +1112,9 @@ function updateDarkModeButton() {
     btn.title = isDark ? 'Switch to light mode' : 'Switch to dark mode';
 }
 
-function toggleSortOrder() {
-    sortOrder = sortOrder === 'newest' ? 'oldest' : 'newest';
+function handleSortChange(e) {
+    sortOrder = e.target.value;
     localStorage.setItem('zfellows-sort-order', sortOrder);
-    updateSortOrderButton();
     renderCandidateList();
 }
 
@@ -1111,18 +1123,25 @@ function loadSortOrder() {
     if (saved) {
         sortOrder = saved;
     }
-    updateSortOrderButton();
+    // Restore AI Score option if saved state uses it
+    if (sortOrder === 'ai-score') {
+         const select = document.getElementById('sort-order-select');
+         if (!select.querySelector('option[value="ai-score"]')) {
+            const option = document.createElement('option');
+            option.value = 'ai-score';
+            option.textContent = 'Sort by AI Score';
+            select.appendChild(option);
+            
+            // Also highlight the left-to-review button as we are likely in that mode
+            document.querySelector('.left-to-review-btn').classList.add('active');
+        }
+    }
+    updateSortOrderSelect();
 }
 
-function updateSortOrderButton() {
-    const btn = document.getElementById('sort-order-toggle');
-    if (sortOrder === 'newest') {
-        btn.textContent = '↓ Newest';
-        btn.title = 'Showing newest first (click for oldest first)';
-    } else {
-        btn.textContent = '↑ Oldest';
-        btn.title = 'Showing oldest first (click for newest first)';
-    }
+function updateSortOrderSelect() {
+    const select = document.getElementById('sort-order-select');
+    select.value = sortOrder;
 }
 
 function handleSearch(e) {
@@ -1149,16 +1168,48 @@ function handleSearch(e) {
     }
 }
 
+function getSortedCandidates() {
+    let sortedCandidates;
+
+    if (sortOrder === 'ai-score') {
+        // Base sort is oldest first (chronological)
+        const chronological = [...candidates].sort((a, b) => new Date(a.createdTime || 0).getTime() - new Date(b.createdTime || 0).getTime());
+        
+        // Find the flagged candidate to split
+        const flagged = chronological.filter(c => flaggedCandidates.has(c.id));
+        const lastFlagged = flagged.length > 0 ? flagged[flagged.length - 1] : null;
+
+        if (lastFlagged) {
+            const splitIndex = chronological.findIndex(c => c.id === lastFlagged.id);
+            // Items up to and including the flag
+            const reviewed = chronological.slice(0, splitIndex + 1);
+            // Items after the flag
+            const unreviewed = chronological.slice(splitIndex + 1);
+            
+            // Sort unreviewed by AI score descending
+            unreviewed.sort((a, b) => (b.aiScore || 0) - (a.aiScore || 0));
+            
+            sortedCandidates = [...reviewed, ...unreviewed];
+        } else {
+            // If no flag, assume all are unreviewed or just sort everything by AI score
+            sortedCandidates = [...candidates].sort((a, b) => (b.aiScore || 0) - (a.aiScore || 0));
+        }
+    } else {
+        // Sort by createdTime based on sortOrder
+        sortedCandidates = [...candidates].sort((a, b) => {
+            const timeA = new Date(a.createdTime || 0).getTime();
+            const timeB = new Date(b.createdTime || 0).getTime();
+            return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+        });
+    }
+    return sortedCandidates;
+}
+
 function renderCandidateList() {
     const listElement = document.getElementById('candidate-list');
     listElement.innerHTML = '';
     
-    // Sort by createdTime based on sortOrder
-    const sortedCandidates = [...candidates].sort((a, b) => {
-        const timeA = new Date(a.createdTime || 0).getTime();
-        const timeB = new Date(b.createdTime || 0).getTime();
-        return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
-    });
+    const sortedCandidates = getSortedCandidates();
     
     // Separate visible and hidden candidates
     const visibleCandidates = sortedCandidates.filter(c => !hiddenCandidates.has(c.id));
@@ -1476,11 +1527,7 @@ async function checkAndMoveFlag() {
     const flaggedId = [...flaggedCandidates][0];
     
     // Sort all candidates (ignoring hidden status for index calculation unless shown)
-    const sorted = [...candidates].sort((a, b) => {
-        const timeA = new Date(a.createdTime || 0).getTime();
-        const timeB = new Date(b.createdTime || 0).getTime();
-        return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
-    });
+    const sorted = getSortedCandidates();
     
     const flaggedIndex = sorted.findIndex(c => c.id === flaggedId);
     if (flaggedIndex === -1) return;
@@ -1554,11 +1601,7 @@ function setupKeyboardShortcuts() {
 
 function navigateToAdjacentCandidate(direction) {
     // Get the sorted candidates list (same order as displayed in sidebar)
-    let sortedCandidates = [...candidates].sort((a, b) => {
-        const timeA = new Date(a.createdTime || 0).getTime();
-        const timeB = new Date(b.createdTime || 0).getTime();
-        return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
-    });
+    let sortedCandidates = getSortedCandidates();
     
     // Filter out hidden candidates unless showHiddenToggle is on
     if (!showHiddenToggle) {
@@ -1593,11 +1636,7 @@ function navigateToAdjacentCandidate(direction) {
 
 function moveToNextCandidate() {
     // Sort candidates to match visual order
-    const sortedCandidates = [...candidates].sort((a, b) => {
-        const timeA = new Date(a.createdTime || 0).getTime();
-        const timeB = new Date(b.createdTime || 0).getTime();
-        return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
-    });
+    const sortedCandidates = getSortedCandidates();
 
     const currentIndex = sortedCandidates.findIndex(c => c.id === currentCandidateId);
     if (currentIndex === -1) return;
