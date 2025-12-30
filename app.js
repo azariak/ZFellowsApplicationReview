@@ -1585,6 +1585,14 @@ function setupKeyboardShortcuts() {
             hideCandidate(currentCandidateId);
             moveToNextCandidate();
             checkAndMoveFlag(); // Move flag after hiding/moving so it lands on the next VISIBLE candidate
+            
+            if (typeof gtag === 'function') {
+                gtag('event', 'process_application', {
+                    'event_category': 'Shortcut',
+                    'event_label': 'Reject',
+                    'value': 1
+                });
+            }
             return;
         }
         const actions = { 
@@ -1595,6 +1603,14 @@ function setupKeyboardShortcuts() {
             setStatus(currentCandidateId, actions[key]);
             moveToNextCandidate();
             checkAndMoveFlag();
+
+            if (typeof gtag === 'function') {
+                gtag('event', 'process_application', {
+                    'event_category': 'Shortcut',
+                    'event_label': actions[key],
+                    'value': 1
+                });
+            }
         }
     });
 }
