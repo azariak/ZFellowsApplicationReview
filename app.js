@@ -635,9 +635,14 @@ async function loadCandidatesFromAPI(offset = null) {
     loadAIScores();
     renderCandidateList();
     updateStats();
-    
+
     if (candidates.length > 0 && !currentCandidateId) {
-        selectCandidate(candidates[0].id);
+        // Select the first visible candidate (top of the list)
+        const sortedCandidates = getSortedCandidates();
+        const firstVisible = sortedCandidates.find(c => !hiddenCandidates.has(c.id));
+        if (firstVisible) {
+            selectCandidate(firstVisible.id);
+        }
     } else if (candidates.length === 0) {
         document.getElementById('candidate-details').innerHTML = '<p class="empty-state">No candidates found in Airtable</p>';
     }
