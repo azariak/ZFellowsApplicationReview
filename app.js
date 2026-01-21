@@ -1176,7 +1176,16 @@ function undoLastMove() {
     } else {
         // Timer already fired, sync the restored status to Airtable
         savePendingStatus(lastAction.candidateId);
-        updateAirtableStage(lastAction.candidateId, lastAction.oldStatus)
+
+        // Determine if we should mark/unmark as reviewed based on the status we're reverting to
+        const reviewedPromise = lastAction.oldStatus === 'Stage 1: Review'
+            ? unmarkAsReviewed(lastAction.candidateId)
+            : markAsReviewed(lastAction.candidateId);
+
+        Promise.all([
+            updateAirtableStage(lastAction.candidateId, lastAction.oldStatus),
+            reviewedPromise
+        ])
             .then(() => {
                 removeSavedStatus(lastAction.candidateId);
             })
@@ -1211,7 +1220,15 @@ function redoLastMove() {
     }
     
     // Sync the redo to Airtable and clean up localStorage
-    updateAirtableStage(lastRedo.candidateId, lastRedo.newStatus)
+    // Determine if we should mark/unmark as reviewed based on the status we're redoing to
+    const reviewedPromise = lastRedo.newStatus === 'Stage 1: Review'
+        ? unmarkAsReviewed(lastRedo.candidateId)
+        : markAsReviewed(lastRedo.candidateId);
+
+    Promise.all([
+        updateAirtableStage(lastRedo.candidateId, lastRedo.newStatus),
+        reviewedPromise
+    ])
         .then(() => {
             removeSavedStatus(lastRedo.candidateId);
         })
