@@ -637,11 +637,31 @@ async function loadCandidatesFromAPI(offset = null) {
     updateStats();
 
     if (candidates.length > 0 && !currentCandidateId) {
-        // Select the first visible candidate (top of the list)
+        // Select the first visible candidate (top of the main list, not hidden section)
         const sortedCandidates = getSortedCandidates();
-        const firstVisible = sortedCandidates.find(c => !hiddenCandidates.has(c.id));
-        if (firstVisible) {
-            selectCandidate(firstVisible.id);
+
+        // Use same logic as renderCandidateList to determine visible candidates
+        const flaggedCandidatesList = candidates.filter(c => flaggedCandidates.has(c.id));
+        let mostRecentFlag = null;
+        if (flaggedCandidatesList.length > 0) {
+            mostRecentFlag = flaggedCandidatesList.sort((a, b) =>
+                new Date(b.createdTime || 0).getTime() - new Date(a.createdTime || 0).getTime()
+            )[0];
+        }
+
+        let visibleCandidates;
+        if (mostRecentFlag) {
+            const flagTime = new Date(mostRecentFlag.createdTime || 0).getTime();
+            visibleCandidates = sortedCandidates.filter(c => {
+                const cTime = new Date(c.createdTime || 0).getTime();
+                return cTime >= flagTime && !hiddenCandidates.has(c.id);
+            });
+        } else {
+            visibleCandidates = sortedCandidates.filter(c => !hiddenCandidates.has(c.id));
+        }
+
+        if (visibleCandidates.length > 0) {
+            selectCandidate(visibleCandidates[0].id);
         }
     } else if (candidates.length === 0) {
         document.getElementById('candidate-details').innerHTML = '<p class="empty-state">No candidates found in Airtable</p>';
