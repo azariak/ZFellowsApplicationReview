@@ -10,7 +10,7 @@ let showHiddenToggle = false; // Whether to show hidden candidates
 let nextOffset = null; // For pagination
 let hasMoreCandidates = false;
 let isLoadingMore = false;
-let sortOrder = 'oldest'; // 'newest' (reverse chronological) or 'oldest' (chronological)
+let sortOrder = 'oldest'; // 'oldest' (chronological) or 'ai-score'
 let pendingTimers = {}; // { candidateId: { timerId, endTime, status } }
 const fontSizes = [10, 11, 13, 15, 17];
 
@@ -1231,11 +1231,11 @@ function getSortedCandidates() {
             sortedCandidates = [...candidates].sort((a, b) => (b.aiScore || 0) - (a.aiScore || 0));
         }
     } else {
-        // Sort by createdTime based on sortOrder
+        // Sort by createdTime (oldest first - chronological)
         sortedCandidates = [...candidates].sort((a, b) => {
             const timeA = new Date(a.createdTime || 0).getTime();
             const timeB = new Date(b.createdTime || 0).getTime();
-            return sortOrder === 'newest' ? timeB - timeA : timeA - timeB;
+            return timeA - timeB;
         });
     }
     return sortedCandidates;
