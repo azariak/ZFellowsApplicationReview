@@ -1023,9 +1023,14 @@ function setStatus(candidateId, status, skipHistory = false) {
         clearInterval(intervalId);
         delete pendingTimers[candidateId];
         renderCandidateList();
+        // If setting to Stage 1: Review, unmark as reviewed. Otherwise, mark as reviewed.
+        const reviewedPromise = status === 'Stage 1: Review'
+            ? unmarkAsReviewed(candidateId)
+            : markAsReviewed(candidateId);
+
         Promise.all([
             updateAirtableStage(candidateId, status),
-            markAsReviewed(candidateId)
+            reviewedPromise
         ])
             .then(() => {
                 // After successful sync, remove from localStorage so Airtable is source of truth
@@ -1079,6 +1084,26 @@ async function markAsReviewed(recordId) {
         console.log(`✓ Marked candidate ${recordId} as reviewed on site`);
     } catch (err) {
         console.error('Failed to mark as reviewed:', err);
+    }
+}
+
+async function unmarkAsReviewed(recordId) {
+    try {
+        if (hasValidSettings()) {
+            await updateAirtableDirect(recordId, { 'Reviewed on Azaria\'s site': false });
+        } else {
+            await updateAirtableViaServer(recordId, { 'Reviewed on Azaria\'s site': false });
+        }
+
+        // Update local candidate object
+        const candidate = candidates.find(c => c.id === recordId);
+        if (candidate) {
+            candidate.reviewedOnSite = false;
+        }
+
+        console.log(`✓ Unmarked candidate ${recordId} as reviewed on site`);
+    } catch (err) {
+        console.error('Failed to unmark as reviewed:', err);
     }
 }
 
