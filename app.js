@@ -898,35 +898,6 @@ async function toggleFlag(candidateId, e) {
     }
 }
 
-function jumpToLeftToReview() {
-    // Sort all candidates by time (newest first) to find most recent flagged
-    const sorted = [...candidates].sort((a, b) => new Date(b.createdTime || 0) - new Date(a.createdTime || 0));
-    const mostRecentFlagged = sorted.find(c => flaggedCandidates.has(c.id));
-    
-    // Highlight the button
-    document.querySelector('.left-to-review-btn').classList.add('active');
-    
-    // Add "Sort by AI score" option if not present
-    const select = document.getElementById('sort-order-select');
-    if (!select.querySelector('option[value="ai-score"]')) {
-        const option = document.createElement('option');
-        option.value = 'ai-score';
-        option.textContent = 'Sort by AI Score';
-        select.appendChild(option);
-    }
-
-    if (!mostRecentFlagged) return;
-    
-    // Switch to oldest-first and select the most recent flagged candidate
-    sortOrder = 'oldest';
-    localStorage.setItem('zfellows-sort-order', sortOrder);
-    updateSortOrderSelect();
-    renderCandidateList();
-    
-    selectCandidate(mostRecentFlagged.id);
-    document.querySelector('.candidate-item.active')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
-
 function getStatus(candidateId) {
     return normalizeStage(candidateStatuses[candidateId]);
 }
@@ -1202,19 +1173,6 @@ function loadSortOrder() {
     if (saved) {
         sortOrder = saved;
     }
-    // Restore AI Score option if saved state uses it
-    if (sortOrder === 'ai-score') {
-         const select = document.getElementById('sort-order-select');
-         if (!select.querySelector('option[value="ai-score"]')) {
-            const option = document.createElement('option');
-            option.value = 'ai-score';
-            option.textContent = 'Sort by AI Score';
-            select.appendChild(option);
-            
-            // Also highlight the left-to-review button as we are likely in that mode
-            document.querySelector('.left-to-review-btn').classList.add('active');
-        }
-    }
     updateSortOrderSelect();
 }
 
@@ -1415,34 +1373,6 @@ function renderCandidateList() {
         }
     }
     
-    updateLeftToReviewCount();
-}
-
-function updateLeftToReviewCount() {
-    const countSpan = document.getElementById('left-to-review-count');
-    if (!countSpan) return;
-
-    // Find the most recent flagged candidate
-    // Sort by newest first to easily find the "cutoff"
-    const sortedByTime = [...candidates].sort((a, b) => new Date(b.createdTime || 0) - new Date(a.createdTime || 0));
-    const flagIndex = sortedByTime.findIndex(c => flaggedCandidates.has(c.id));
-
-    if (flagIndex === -1) {
-        countSpan.textContent = '';
-        return;
-    }
-
-    // Count visible candidates newer than the flag
-    // (Indices 0 to flagIndex - 1 are newer)
-    let count = 0;
-    for (let i = 0; i < flagIndex; i++) {
-        const c = sortedByTime[i];
-        if (!hiddenCandidates.has(c.id)) {
-            count++;
-        }
-    }
-
-    countSpan.textContent = ` (${count})`;
 }
 
 function updateStats() {
