@@ -49,6 +49,7 @@ const FIELD_MAPPINGS = {
     'In school or working?': 'schoolOrWork',
     'What is the project that you are currently working on or would like to pursue? Why?': 'projectDescription',
     'Flag': 'flag',
+    'Reviewed on Azaria\'s site': 'reviewedOnSite',
     'What problem are you solving?': 'problemSolving',
     'What expertise do you have to execute on the work that you want to do?': 'expertise',
     'Who are your competitors and what do you understand about your idea that they don\'t?': 'competitors',
@@ -630,6 +631,7 @@ async function loadCandidatesFromAPI(offset = null) {
     loadFlags();
     loadHiddenCandidates();
     hideAirtableRejected(); // Auto-hide candidates with Rejection status from Airtable
+    hideReviewedCandidates(); // Auto-hide candidates marked as reviewed on site
     loadAIScores();
     renderCandidateList();
     updateStats();
@@ -784,6 +786,21 @@ function hideAirtableRejected() {
     }
 }
 
+// Automatically hide candidates that have been reviewed on the site
+function hideReviewedCandidates() {
+    let count = 0;
+    candidates.forEach(c => {
+        if (c.reviewedOnSite && !hiddenCandidates.has(c.id)) {
+            hiddenCandidates.add(c.id);
+            count++;
+        }
+    });
+    if (count > 0) {
+        saveHiddenCandidates();
+        console.log(`✓ Auto-hid ${count} candidates marked as reviewed on site`);
+    }
+}
+
 // Hide candidate locally (mark as rejected without syncing to Airtable)
 function hideCandidate(candidateId, skipHistory = false) {
     const oldStatus = candidateStatuses[candidateId];
@@ -809,7 +826,10 @@ function hideCandidate(candidateId, skipHistory = false) {
     renderCandidateList();
     updateStats();
     if (candidateId === currentCandidateId) updateStatusBadge(newStatus);
-    
+
+    // Mark as reviewed on site (even though rejection status is not synced)
+    markAsReviewed(candidateId);
+
     // Note: NO Airtable sync for local rejections
     console.log(`✓ Hidden candidate ${candidateId} locally (not synced to Airtable)`);
 }
@@ -958,7 +978,10 @@ function setStatus(candidateId, status, skipHistory = false) {
         clearInterval(intervalId);
         delete pendingTimers[candidateId];
         renderCandidateList();
-        updateAirtableStage(candidateId, status)
+        Promise.all([
+            updateAirtableStage(candidateId, status),
+            markAsReviewed(candidateId)
+        ])
             .then(() => {
                 // After successful sync, remove from localStorage so Airtable is source of truth
                 removeSavedStatus(candidateId);
@@ -984,13 +1007,33 @@ function mapStatusToAirtableStage(status) {
 
 async function updateAirtableStage(recordId, status) {
     const airtableStage = mapStatusToAirtableStage(status);
-    
+
     if (hasValidSettings()) {
         // Browser-side update
         await updateAirtableDirect(recordId, { 'Stage': airtableStage });
     } else {
         // Server-side update
         await updateAirtableViaServer(recordId, { 'Stage': airtableStage });
+    }
+}
+
+async function markAsReviewed(recordId) {
+    try {
+        if (hasValidSettings()) {
+            await updateAirtableDirect(recordId, { 'Reviewed on Azaria\'s site': true });
+        } else {
+            await updateAirtableViaServer(recordId, { 'Reviewed on Azaria\'s site': true });
+        }
+
+        // Update local candidate object
+        const candidate = candidates.find(c => c.id === recordId);
+        if (candidate) {
+            candidate.reviewedOnSite = true;
+        }
+
+        console.log(`✓ Marked candidate ${recordId} as reviewed on site`);
+    } catch (err) {
+        console.error('Failed to mark as reviewed:', err);
     }
 }
 

@@ -76,6 +76,7 @@ const FIELD_MAPPINGS = {
     
     // Internal flags
     'Flag': 'flag',
+    'Reviewed on Azaria\'s site': 'reviewedOnSite',
     'AI Score': 'aiScore'
 };
 
