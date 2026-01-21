@@ -653,8 +653,13 @@ async function loadCandidatesFromAPI(offset = null) {
         if (mostRecentFlag) {
             const flagTime = new Date(mostRecentFlag.createdTime || 0).getTime();
             visibleCandidates = sortedCandidates.filter(c => {
+                if (hiddenCandidates.has(c.id)) return false;
+
                 const cTime = new Date(c.createdTime || 0).getTime();
-                return cTime >= flagTime && !hiddenCandidates.has(c.id);
+                if (cTime >= flagTime) return true; // From flag onward
+
+                // Before flag but not marked as reviewed (being re-reviewed)
+                return !c.reviewedOnSite;
             });
         } else {
             visibleCandidates = sortedCandidates.filter(c => !hiddenCandidates.has(c.id));
@@ -846,9 +851,6 @@ function hideCandidate(candidateId, skipHistory = false) {
     candidateStatuses[candidateId] = newStatus;
     hiddenCandidates.add(candidateId);
 
-    // Move flag to current candidate (this will hide all applications before it)
-    moveFlagToCandidate(candidateId);
-
     savePendingStatus(candidateId);
     saveHiddenCandidates();
     renderCandidateList();
@@ -1002,8 +1004,11 @@ function setStatus(candidateId, status, skipHistory = false) {
         console.log(`✓ Unhid candidate ${candidateId} (status changed from Rejection)`);
     }
 
-    // Move flag to current candidate (this will hide all applications before it)
-    moveFlagToCandidate(candidateId);
+    // Only move flag forward when advancing to Interview (represents forward progress)
+    // Don't move flag for Stage 1: Review (going back) or other statuses
+    if (status === 'Stage 2: Interview') {
+        moveFlagToCandidate(candidateId);
+    }
 
     renderCandidateList();
     updateStats();
@@ -1361,22 +1366,27 @@ function renderCandidateList() {
     if (mostRecentFlag) {
         const flagTime = new Date(mostRecentFlag.createdTime || 0).getTime();
 
-        // Separate candidates into before and from flag onward
-        const beforeFlag = sortedCandidates.filter(c => {
+        // Visible: from flag onward OR (before flag but being re-reviewed)
+        visibleCandidates = sortedCandidates.filter(c => {
+            if (hiddenCandidates.has(c.id)) return false;
+
             const cTime = new Date(c.createdTime || 0).getTime();
-            return cTime < flagTime && !hiddenCandidates.has(c.id);
+            if (cTime >= flagTime) return true; // From flag onward
+
+            // Before flag but not marked as reviewed (being re-reviewed)
+            return !c.reviewedOnSite;
         });
 
-        const fromFlagOnward = sortedCandidates.filter(c => {
+        // Hidden section: before flag AND marked as reviewed, OR in hiddenCandidates
+        const beforeFlagAndReviewed = sortedCandidates.filter(c => {
+            if (hiddenCandidates.has(c.id)) return false; // Will be included separately
+
             const cTime = new Date(c.createdTime || 0).getTime();
-            return cTime >= flagTime && !hiddenCandidates.has(c.id);
+            return cTime < flagTime && c.reviewedOnSite;
         });
 
-        visibleCandidates = fromFlagOnward;
-
-        // Below flag section includes: candidates before flag + actually hidden candidates
         const actuallyHidden = sortedCandidates.filter(c => hiddenCandidates.has(c.id));
-        belowFlagCandidates = [...beforeFlag, ...actuallyHidden];
+        belowFlagCandidates = [...beforeFlagAndReviewed, ...actuallyHidden];
     } else {
         // No flag: show all non-hidden candidates
         visibleCandidates = sortedCandidates.filter(c => !hiddenCandidates.has(c.id));
