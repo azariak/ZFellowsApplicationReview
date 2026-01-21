@@ -849,19 +849,31 @@ function hideCandidate(candidateId, skipHistory = false) {
     }
     
     candidateStatuses[candidateId] = newStatus;
-    hiddenCandidates.add(candidateId);
+    // DON'T add to hiddenCandidates yet - wait 5 seconds so user can undo
 
     savePendingStatus(candidateId);
-    saveHiddenCandidates();
     renderCandidateList();
     updateStats();
     if (candidateId === currentCandidateId) updateStatusBadge(newStatus);
 
-    // Mark as reviewed on site (even though rejection status is not synced)
-    markAsReviewed(candidateId);
+    // Delay hiding by 5 seconds with timer (allows undo)
+    const endTime = Date.now() + 5000;
+    const intervalId = setInterval(() => renderCandidateList(), 1000);
+    const timerId = setTimeout(() => {
+        clearInterval(intervalId);
+        delete pendingTimers[candidateId];
 
-    // Note: NO Airtable sync for local rejections
-    console.log(`✓ Hidden candidate ${candidateId} locally (not synced to Airtable)`);
+        // NOW actually hide it
+        hiddenCandidates.add(candidateId);
+        saveHiddenCandidates();
+        renderCandidateList();
+
+        // Mark as reviewed on site (even though rejection status is not synced)
+        markAsReviewed(candidateId);
+
+        console.log(`✓ Hidden candidate ${candidateId} locally (not synced to Airtable)`);
+    }, 5000);
+    pendingTimers[candidateId] = { timerId, intervalId, endTime, status: newStatus };
 }
 
 // Unhide a candidate (for undo)
