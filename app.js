@@ -1040,8 +1040,25 @@ function setStatus(candidateId, status, skipHistory = false) {
         clearInterval(intervalId);
         delete pendingTimers[candidateId];
         renderCandidateList();
-        // If setting to Stage 1: Review, unmark as reviewed. Otherwise, mark as reviewed.
-        const reviewedPromise = status === 'Stage 1: Review'
+        // Determine if we should unmark as reviewed
+        // Only unmark if: setting to Stage 1: Review AND app is in hidden section (before flag)
+        let shouldUnmark = false;
+        if (status === 'Stage 1: Review') {
+            const flaggedCandidatesList = candidates.filter(c => flaggedCandidates.has(c.id));
+            if (flaggedCandidatesList.length > 0) {
+                const mostRecentFlag = flaggedCandidatesList.sort((a, b) =>
+                    new Date(b.createdTime || 0).getTime() - new Date(a.createdTime || 0).getTime()
+                )[0];
+                const flagTime = new Date(mostRecentFlag.createdTime || 0).getTime();
+                const candidate = candidates.find(c => c.id === candidateId);
+                if (candidate) {
+                    const cTime = new Date(candidate.createdTime || 0).getTime();
+                    shouldUnmark = cTime < flagTime; // Before flag
+                }
+            }
+        }
+
+        const reviewedPromise = shouldUnmark
             ? unmarkAsReviewed(candidateId)
             : markAsReviewed(candidateId);
 
@@ -1190,7 +1207,24 @@ function undoLastMove() {
         savePendingStatus(lastAction.candidateId);
 
         // Determine if we should mark/unmark as reviewed based on the status we're reverting to
-        const reviewedPromise = lastAction.oldStatus === 'Stage 1: Review'
+        // Only unmark if: reverting to Stage 1: Review AND app is before flag
+        let shouldUnmark = false;
+        if (lastAction.oldStatus === 'Stage 1: Review') {
+            const flaggedCandidatesList = candidates.filter(c => flaggedCandidates.has(c.id));
+            if (flaggedCandidatesList.length > 0) {
+                const mostRecentFlag = flaggedCandidatesList.sort((a, b) =>
+                    new Date(b.createdTime || 0).getTime() - new Date(a.createdTime || 0).getTime()
+                )[0];
+                const flagTime = new Date(mostRecentFlag.createdTime || 0).getTime();
+                const candidate = candidates.find(c => c.id === lastAction.candidateId);
+                if (candidate) {
+                    const cTime = new Date(candidate.createdTime || 0).getTime();
+                    shouldUnmark = cTime < flagTime; // Before flag
+                }
+            }
+        }
+
+        const reviewedPromise = shouldUnmark
             ? unmarkAsReviewed(lastAction.candidateId)
             : markAsReviewed(lastAction.candidateId);
 
@@ -1233,7 +1267,24 @@ function redoLastMove() {
     
     // Sync the redo to Airtable and clean up localStorage
     // Determine if we should mark/unmark as reviewed based on the status we're redoing to
-    const reviewedPromise = lastRedo.newStatus === 'Stage 1: Review'
+    // Only unmark if: redoing to Stage 1: Review AND app is before flag
+    let shouldUnmark = false;
+    if (lastRedo.newStatus === 'Stage 1: Review') {
+        const flaggedCandidatesList = candidates.filter(c => flaggedCandidates.has(c.id));
+        if (flaggedCandidatesList.length > 0) {
+            const mostRecentFlag = flaggedCandidatesList.sort((a, b) =>
+                new Date(b.createdTime || 0).getTime() - new Date(a.createdTime || 0).getTime()
+            )[0];
+            const flagTime = new Date(mostRecentFlag.createdTime || 0).getTime();
+            const candidate = candidates.find(c => c.id === lastRedo.candidateId);
+            if (candidate) {
+                const cTime = new Date(candidate.createdTime || 0).getTime();
+                shouldUnmark = cTime < flagTime; // Before flag
+            }
+        }
+    }
+
+    const reviewedPromise = shouldUnmark
         ? unmarkAsReviewed(lastRedo.candidateId)
         : markAsReviewed(lastRedo.candidateId);
 
@@ -1402,16 +1453,16 @@ function renderCandidateList() {
             const cTime = new Date(c.createdTime || 0).getTime();
             if (cTime >= flagTime) return true; // From flag onward
 
-            // Before flag but not marked as reviewed (being re-reviewed)
+            // Before flag but unmarked as reviewed (being re-reviewed)
             return !c.reviewedOnSite;
         });
 
-        // Hidden section: before flag AND marked as reviewed, OR in hiddenCandidates
+        // Hidden section: before flag AND marked as reviewed, OR actually hidden
         const beforeFlagAndReviewed = sortedCandidates.filter(c => {
             if (hiddenCandidates.has(c.id)) return false; // Will be included separately
 
             const cTime = new Date(c.createdTime || 0).getTime();
-            return cTime < flagTime && c.reviewedOnSite;
+            return cTime < flagTime && c.reviewedOnSite; // Before flag and marked as reviewed
         });
 
         const actuallyHidden = sortedCandidates.filter(c => hiddenCandidates.has(c.id));
