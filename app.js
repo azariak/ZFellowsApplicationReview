@@ -746,21 +746,16 @@ function saveHistory() {
 
 function loadFlags() {
     flaggedCandidates.clear();
-    
-    // Find candidates with the flag set from Airtable
+
+    // Find all candidates with the flag set from Airtable (Flag = true means reviewed)
     const flagged = candidates.filter(c => c.flag);
-    
+
+    flagged.forEach(c => {
+        flaggedCandidates.add(c.id);
+    });
+
     if (flagged.length > 0) {
-        // Sort by createdTime descending to get the "latest" person
-        flagged.sort((a, b) => {
-            return new Date(b.createdTime || 0).getTime() - new Date(a.createdTime || 0).getTime();
-        });
-        
-        // Only keep the latest one flagged locally
-        const latestFlagged = flagged[0];
-        flaggedCandidates.add(latestFlagged.id);
-        
-        console.log(`Loaded flag for ${latestFlagged.firstName} ${latestFlagged.lastName} from Airtable`);
+        console.log(`Loaded ${flagged.length} reviewed (flagged) candidates from Airtable`);
     }
 }
 
@@ -1249,13 +1244,45 @@ function getSortedCandidates() {
 function renderCandidateList() {
     const listElement = document.getElementById('candidate-list');
     listElement.innerHTML = '';
-    
+
     const sortedCandidates = getSortedCandidates();
-    
-    // Separate visible and hidden candidates
-    const visibleCandidates = sortedCandidates.filter(c => !hiddenCandidates.has(c.id));
-    const hiddenCandidatesList = sortedCandidates.filter(c => hiddenCandidates.has(c.id));
-    
+
+    // Find the most recent flagged candidate (by createdTime)
+    const flaggedCandidatesList = candidates.filter(c => flaggedCandidates.has(c.id));
+    let mostRecentFlag = null;
+    if (flaggedCandidatesList.length > 0) {
+        mostRecentFlag = flaggedCandidatesList.sort((a, b) =>
+            new Date(b.createdTime || 0).getTime() - new Date(a.createdTime || 0).getTime()
+        )[0];
+    }
+
+    let visibleCandidates, belowFlagCandidates;
+
+    if (mostRecentFlag) {
+        const flagTime = new Date(mostRecentFlag.createdTime || 0).getTime();
+
+        // Separate candidates into before and from flag onward
+        const beforeFlag = sortedCandidates.filter(c => {
+            const cTime = new Date(c.createdTime || 0).getTime();
+            return cTime < flagTime && !hiddenCandidates.has(c.id);
+        });
+
+        const fromFlagOnward = sortedCandidates.filter(c => {
+            const cTime = new Date(c.createdTime || 0).getTime();
+            return cTime >= flagTime && !hiddenCandidates.has(c.id);
+        });
+
+        visibleCandidates = fromFlagOnward;
+
+        // Below flag section includes: candidates before flag + actually hidden candidates
+        const actuallyHidden = sortedCandidates.filter(c => hiddenCandidates.has(c.id));
+        belowFlagCandidates = [...beforeFlag, ...actuallyHidden];
+    } else {
+        // No flag: show all non-hidden candidates
+        visibleCandidates = sortedCandidates.filter(c => !hiddenCandidates.has(c.id));
+        belowFlagCandidates = sortedCandidates.filter(c => hiddenCandidates.has(c.id));
+    }
+
     // Render visible candidates
     visibleCandidates.forEach(candidate => {
         const stage = getStatus(candidate.id);
@@ -1297,24 +1324,24 @@ function renderCandidateList() {
         `;
         listElement.appendChild(loadMoreContainer);
     }
-    
-    // Add "Show hidden" toggle if there are hidden candidates
-    if (hiddenCandidatesList.length > 0) {
+
+    // Add "Show hidden" toggle if there are candidates below the flag
+    if (belowFlagCandidates.length > 0) {
         const hiddenToggle = document.createElement('div');
         hiddenToggle.className = 'hidden-toggle-container';
         hiddenToggle.innerHTML = `
             <button class="hidden-toggle-btn ${showHiddenToggle ? 'active' : ''}" onclick="toggleShowHidden()">
-                ${showHiddenToggle ? '▼' : '▶'} Hidden (${hiddenCandidatesList.length})
+                ${showHiddenToggle ? '▼' : '▶'} Hidden (${belowFlagCandidates.length})
             </button>
         `;
         listElement.appendChild(hiddenToggle);
-        
+
         // Render hidden candidates if toggle is on
         if (showHiddenToggle) {
             const hiddenSection = document.createElement('div');
             hiddenSection.className = 'hidden-candidates-section';
-            
-            hiddenCandidatesList.forEach(candidate => {
+
+            belowFlagCandidates.forEach(candidate => {
                 const stage = getStatus(candidate.id);
                 const stageClass = getStageClass(stage);
                 const isActive = currentCandidateId === candidate.id;
@@ -1340,7 +1367,7 @@ function renderCandidateList() {
                 `;
                 hiddenSection.appendChild(item);
             });
-            
+
             listElement.appendChild(hiddenSection);
         }
     }
