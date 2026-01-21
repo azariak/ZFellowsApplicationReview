@@ -656,10 +656,7 @@ async function loadCandidatesFromAPI(offset = null) {
                 if (hiddenCandidates.has(c.id)) return false;
 
                 const cTime = new Date(c.createdTime || 0).getTime();
-                if (cTime >= flagTime) return true; // From flag onward
-
-                // Before flag but not marked as reviewed (being re-reviewed)
-                return !c.reviewedOnSite;
+                return cTime >= flagTime; // From flag onward ONLY
             });
         } else {
             visibleCandidates = sortedCandidates.filter(c => !hiddenCandidates.has(c.id));
@@ -1016,10 +1013,28 @@ function setStatus(candidateId, status, skipHistory = false) {
         console.log(`✓ Unhid candidate ${candidateId} (status changed from Rejection)`);
     }
 
-    // Only move flag forward when advancing to Interview (represents forward progress)
-    // Don't move flag for Stage 1: Review (going back) or other statuses
+    // Flag movement logic:
+    // 1. Move forward when advancing to Interview (represents forward progress)
+    // 2. Move backward when setting to Review AND app is before current flag (bringing back for re-review)
     if (status === 'Stage 2: Interview') {
         moveFlagToCandidate(candidateId);
+    } else if (status === 'Stage 1: Review') {
+        // Check if app is before the current flag
+        const flaggedCandidatesList = candidates.filter(c => flaggedCandidates.has(c.id));
+        if (flaggedCandidatesList.length > 0) {
+            const mostRecentFlag = flaggedCandidatesList.sort((a, b) =>
+                new Date(b.createdTime || 0).getTime() - new Date(a.createdTime || 0).getTime()
+            )[0];
+            const flagTime = new Date(mostRecentFlag.createdTime || 0).getTime();
+            const candidate = candidates.find(c => c.id === candidateId);
+            if (candidate) {
+                const cTime = new Date(candidate.createdTime || 0).getTime();
+                if (cTime < flagTime) {
+                    // App is before flag, move flag to it for re-review
+                    moveFlagToCandidate(candidateId);
+                }
+            }
+        }
     }
 
     renderCandidateList();
@@ -1040,25 +1055,10 @@ function setStatus(candidateId, status, skipHistory = false) {
         clearInterval(intervalId);
         delete pendingTimers[candidateId];
         renderCandidateList();
-        // Determine if we should unmark as reviewed
-        // Only unmark if: setting to Stage 1: Review AND app is in hidden section (before flag)
-        let shouldUnmark = false;
-        if (status === 'Stage 1: Review') {
-            const flaggedCandidatesList = candidates.filter(c => flaggedCandidates.has(c.id));
-            if (flaggedCandidatesList.length > 0) {
-                const mostRecentFlag = flaggedCandidatesList.sort((a, b) =>
-                    new Date(b.createdTime || 0).getTime() - new Date(a.createdTime || 0).getTime()
-                )[0];
-                const flagTime = new Date(mostRecentFlag.createdTime || 0).getTime();
-                const candidate = candidates.find(c => c.id === candidateId);
-                if (candidate) {
-                    const cTime = new Date(candidate.createdTime || 0).getTime();
-                    shouldUnmark = cTime < flagTime; // Before flag
-                }
-            }
-        }
-
-        const reviewedPromise = shouldUnmark
+        // Marking logic:
+        // - Stage 1: Review = unmark as reviewed (going back to review)
+        // - All other statuses = mark as reviewed (processed)
+        const reviewedPromise = status === 'Stage 1: Review'
             ? unmarkAsReviewed(candidateId)
             : markAsReviewed(candidateId);
 
@@ -1206,25 +1206,8 @@ function undoLastMove() {
         // Timer already fired, sync the restored status to Airtable
         savePendingStatus(lastAction.candidateId);
 
-        // Determine if we should mark/unmark as reviewed based on the status we're reverting to
-        // Only unmark if: reverting to Stage 1: Review AND app is before flag
-        let shouldUnmark = false;
-        if (lastAction.oldStatus === 'Stage 1: Review') {
-            const flaggedCandidatesList = candidates.filter(c => flaggedCandidates.has(c.id));
-            if (flaggedCandidatesList.length > 0) {
-                const mostRecentFlag = flaggedCandidatesList.sort((a, b) =>
-                    new Date(b.createdTime || 0).getTime() - new Date(a.createdTime || 0).getTime()
-                )[0];
-                const flagTime = new Date(mostRecentFlag.createdTime || 0).getTime();
-                const candidate = candidates.find(c => c.id === lastAction.candidateId);
-                if (candidate) {
-                    const cTime = new Date(candidate.createdTime || 0).getTime();
-                    shouldUnmark = cTime < flagTime; // Before flag
-                }
-            }
-        }
-
-        const reviewedPromise = shouldUnmark
+        // Marking logic for undo: match the status-based approach
+        const reviewedPromise = lastAction.oldStatus === 'Stage 1: Review'
             ? unmarkAsReviewed(lastAction.candidateId)
             : markAsReviewed(lastAction.candidateId);
 
@@ -1266,25 +1249,8 @@ function redoLastMove() {
     }
     
     // Sync the redo to Airtable and clean up localStorage
-    // Determine if we should mark/unmark as reviewed based on the status we're redoing to
-    // Only unmark if: redoing to Stage 1: Review AND app is before flag
-    let shouldUnmark = false;
-    if (lastRedo.newStatus === 'Stage 1: Review') {
-        const flaggedCandidatesList = candidates.filter(c => flaggedCandidates.has(c.id));
-        if (flaggedCandidatesList.length > 0) {
-            const mostRecentFlag = flaggedCandidatesList.sort((a, b) =>
-                new Date(b.createdTime || 0).getTime() - new Date(a.createdTime || 0).getTime()
-            )[0];
-            const flagTime = new Date(mostRecentFlag.createdTime || 0).getTime();
-            const candidate = candidates.find(c => c.id === lastRedo.candidateId);
-            if (candidate) {
-                const cTime = new Date(candidate.createdTime || 0).getTime();
-                shouldUnmark = cTime < flagTime; // Before flag
-            }
-        }
-    }
-
-    const reviewedPromise = shouldUnmark
+    // Marking logic for redo: match the status-based approach
+    const reviewedPromise = lastRedo.newStatus === 'Stage 1: Review'
         ? unmarkAsReviewed(lastRedo.candidateId)
         : markAsReviewed(lastRedo.candidateId);
 
@@ -1446,27 +1412,24 @@ function renderCandidateList() {
     if (mostRecentFlag) {
         const flagTime = new Date(mostRecentFlag.createdTime || 0).getTime();
 
-        // Visible: from flag onward OR (before flag but being re-reviewed)
+        // Visible: ONLY from flag onward (nothing before flag is visible)
         visibleCandidates = sortedCandidates.filter(c => {
             if (hiddenCandidates.has(c.id)) return false;
 
             const cTime = new Date(c.createdTime || 0).getTime();
-            if (cTime >= flagTime) return true; // From flag onward
-
-            // Before flag but unmarked as reviewed (being re-reviewed)
-            return !c.reviewedOnSite;
+            return cTime >= flagTime; // From flag onward ONLY
         });
 
-        // Hidden section: before flag AND marked as reviewed, OR actually hidden
-        const beforeFlagAndReviewed = sortedCandidates.filter(c => {
+        // Hidden section: ALL apps before flag + actually hidden
+        const beforeFlag = sortedCandidates.filter(c => {
             if (hiddenCandidates.has(c.id)) return false; // Will be included separately
 
             const cTime = new Date(c.createdTime || 0).getTime();
-            return cTime < flagTime && c.reviewedOnSite; // Before flag and marked as reviewed
+            return cTime < flagTime; // Everything before flag
         });
 
         const actuallyHidden = sortedCandidates.filter(c => hiddenCandidates.has(c.id));
-        belowFlagCandidates = [...beforeFlagAndReviewed, ...actuallyHidden];
+        belowFlagCandidates = [...beforeFlag, ...actuallyHidden];
     } else {
         // No flag: show all non-hidden candidates
         visibleCandidates = sortedCandidates.filter(c => !hiddenCandidates.has(c.id));
