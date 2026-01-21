@@ -845,7 +845,10 @@ function hideCandidate(candidateId, skipHistory = false) {
     
     candidateStatuses[candidateId] = newStatus;
     hiddenCandidates.add(candidateId);
-    
+
+    // Move flag to current candidate (this will hide all applications before it)
+    moveFlagToCandidate(candidateId);
+
     savePendingStatus(candidateId);
     saveHiddenCandidates();
     renderCandidateList();
@@ -923,6 +926,49 @@ async function toggleFlag(candidateId, e) {
     }
 }
 
+async function moveFlagToCandidate(candidateId) {
+    const previousFlaggedId = [...flaggedCandidates][0];
+
+    // If already flagged, do nothing
+    if (previousFlaggedId === candidateId) return;
+
+    // Optimistic local update
+    flaggedCandidates.clear();
+    flaggedCandidates.add(candidateId);
+
+    // API Updates
+    try {
+        // Unflag the previous candidate
+        if (previousFlaggedId) {
+            if (hasValidSettings()) {
+                await updateAirtableDirect(previousFlaggedId, { 'Flag': false });
+            } else {
+                await updateAirtableViaServer(previousFlaggedId, { 'Flag': false });
+            }
+
+            const prevCandidate = candidates.find(c => c.id === previousFlaggedId);
+            if (prevCandidate) prevCandidate.flag = false;
+        }
+
+        // Flag the current candidate
+        if (hasValidSettings()) {
+            await updateAirtableDirect(candidateId, { 'Flag': true });
+        } else {
+            await updateAirtableViaServer(candidateId, { 'Flag': true });
+        }
+
+        const candidate = candidates.find(c => c.id === candidateId);
+        if (candidate) candidate.flag = true;
+
+        console.log(`✓ Moved flag to candidate ${candidateId}`);
+    } catch (err) {
+        console.error('Failed to move flag in Airtable:', err);
+        // Revert local state
+        flaggedCandidates.clear();
+        if (previousFlaggedId) flaggedCandidates.add(previousFlaggedId);
+    }
+}
+
 function getStatus(candidateId) {
     return normalizeStage(candidateStatuses[candidateId]);
 }
@@ -949,13 +995,16 @@ function setStatus(candidateId, status, skipHistory = false) {
     }
     candidateStatuses[candidateId] = status;
     savePendingStatus(candidateId);
-    
+
     // If status is changing away from Rejection, unhide the candidate
     if (hiddenCandidates.has(candidateId) && !status.toLowerCase().includes('reject')) {
         unhideCandidate(candidateId);
         console.log(`✓ Unhid candidate ${candidateId} (status changed from Rejection)`);
     }
-    
+
+    // Move flag to current candidate (this will hide all applications before it)
+    moveFlagToCandidate(candidateId);
+
     renderCandidateList();
     updateStats();
     if (candidateId === currentCandidateId) updateStatusBadge(status);
