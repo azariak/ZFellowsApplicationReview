@@ -1013,11 +1013,10 @@ function setStatus(candidateId, status, skipHistory = false) {
         console.log(`✓ Unhid candidate ${candidateId} (status changed from Rejection)`);
     }
 
-    // Flag movement logic:
-    // 1. Move forward when advancing to Interview (represents forward progress)
-    // 2. Move backward when setting to Review AND app is before current flag (bringing back for re-review)
+    // Determine if flag should move (will be delayed by 5 seconds)
+    let shouldMoveFlag = false;
     if (status === 'Stage 2: Interview') {
-        moveFlagToCandidate(candidateId);
+        shouldMoveFlag = true;
     } else if (status === 'Stage 1: Review') {
         // Check if app is before the current flag
         const flaggedCandidatesList = candidates.filter(c => flaggedCandidates.has(c.id));
@@ -1030,8 +1029,8 @@ function setStatus(candidateId, status, skipHistory = false) {
             if (candidate) {
                 const cTime = new Date(candidate.createdTime || 0).getTime();
                 if (cTime < flagTime) {
-                    // App is before flag, move flag to it for re-review
-                    moveFlagToCandidate(candidateId);
+                    // App is before flag, will move flag to it for re-review
+                    shouldMoveFlag = true;
                 }
             }
         }
@@ -1053,7 +1052,14 @@ function setStatus(candidateId, status, skipHistory = false) {
     const intervalId = setInterval(() => renderCandidateList(), 1000);
     const timerId = setTimeout(() => {
         clearInterval(intervalId);
+        const pendingInfo = pendingTimers[candidateId];
         delete pendingTimers[candidateId];
+
+        // Move flag if it was pending
+        if (pendingInfo && pendingInfo.shouldMoveFlag) {
+            moveFlagToCandidate(candidateId);
+        }
+
         renderCandidateList();
         // Marking logic:
         // - Stage 1: Review = unmark as reviewed (going back to review)
@@ -1074,7 +1080,7 @@ function setStatus(candidateId, status, skipHistory = false) {
                 console.error('Failed to sync to Airtable:', err.message);
             });
     }, 5000);
-    pendingTimers[candidateId] = { timerId, intervalId, endTime, status };
+    pendingTimers[candidateId] = { timerId, intervalId, endTime, status, shouldMoveFlag };
 }
 
 // Map our internal status names to Airtable's Stage field values
