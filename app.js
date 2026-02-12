@@ -1061,12 +1061,8 @@ function setStatus(candidateId, status, skipHistory = false) {
         }
 
         renderCandidateList();
-        // Marking logic:
-        // - Stage 1: Review = unmark as reviewed (going back to review)
-        // - All other statuses = mark as reviewed (processed)
-        const reviewedPromise = status === 'Stage 1: Review'
-            ? unmarkAsReviewed(candidateId)
-            : markAsReviewed(candidateId);
+        // Mark as reviewed on site for all status changes (including Stage 1: Review via P key)
+        const reviewedPromise = markAsReviewed(candidateId);
 
         Promise.all([
             updateAirtableStage(candidateId, status),
@@ -1212,10 +1208,8 @@ function undoLastMove() {
         // Timer already fired, sync the restored status to Airtable
         savePendingStatus(lastAction.candidateId);
 
-        // Marking logic for undo: match the status-based approach
-        const reviewedPromise = lastAction.oldStatus === 'Stage 1: Review'
-            ? unmarkAsReviewed(lastAction.candidateId)
-            : markAsReviewed(lastAction.candidateId);
+        // Mark as reviewed on site for all status changes (including Stage 1: Review)
+        const reviewedPromise = markAsReviewed(lastAction.candidateId);
 
         Promise.all([
             updateAirtableStage(lastAction.candidateId, lastAction.oldStatus),
@@ -1255,10 +1249,8 @@ function redoLastMove() {
     }
     
     // Sync the redo to Airtable and clean up localStorage
-    // Marking logic for redo: match the status-based approach
-    const reviewedPromise = lastRedo.newStatus === 'Stage 1: Review'
-        ? unmarkAsReviewed(lastRedo.candidateId)
-        : markAsReviewed(lastRedo.candidateId);
+    // Mark as reviewed on site for all status changes (including Stage 1: Review)
+    const reviewedPromise = markAsReviewed(lastRedo.candidateId);
 
     Promise.all([
         updateAirtableStage(lastRedo.candidateId, lastRedo.newStatus),
