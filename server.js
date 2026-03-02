@@ -62,6 +62,38 @@ app.post('/api/candidates/update', async (req, res) => {
     }
 });
 
+// API endpoint to fetch single-select options for a field (e.g. Interviewer)
+app.get('/api/field-options/:fieldName', async (req, res) => {
+    const token = process.env.AIRTABLE;
+    const baseId = process.env.AIRTABLE_BASE_ID;
+    const tableName = process.env.AIRTABLE_TABLE_NAME || 'Applications';
+    const fieldName = req.params.fieldName;
+
+    if (!token || !baseId) {
+        return res.status(500).json({ success: false, error: 'Airtable not configured' });
+    }
+
+    try {
+        const response = await fetch(`https://api.airtable.com/v0/meta/bases/${baseId}/tables`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) {
+            return res.json({ success: false, error: 'Meta API unavailable' });
+        }
+        const data = await response.json();
+        const table = data.tables.find(t => t.name === tableName || t.id === tableName);
+        if (!table) return res.json({ success: false, error: 'Table not found' });
+
+        const field = table.fields.find(f => f.name.toLowerCase() === fieldName.toLowerCase());
+        if (!field || !field.options || !field.options.choices) {
+            return res.json({ success: true, options: [] });
+        }
+        res.json({ success: true, options: field.options.choices.map(c => c.name) });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     const hasToken = !!process.env.AIRTABLE;

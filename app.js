@@ -11,6 +11,7 @@ let nextOffset = null; // For pagination
 let hasMoreCandidates = false;
 let isLoadingMore = false;
 let sortOrder = 'oldest'; // 'oldest' (chronological) or 'ai-score'
+let interviewerOptions = []; // Populated from Airtable field metadata
 let pendingTimers = {}; // { candidateId: { timerId, endTime, status } }
 const fontSizes = [10, 11, 13, 15, 17];
 
@@ -35,6 +36,7 @@ const FIELD_MAPPINGS = {
     'Previously applied?': 'previouslyApplied',
     'Stage': 'stage',
     'Accept or Reject or Waitlist': 'decision',
+    'Interviewer': 'interviewer',
     'Stage 2 Link To Calendar': 'stage2Calendar',
     'Stage 3 Schedule and Date': 'stage3Schedule',
     'Stage 4 Onboarding Doc': 'stage4Onboarding',
@@ -636,6 +638,15 @@ async function loadCandidatesFromAPI(offset = null) {
     renderCandidateList();
     updateStats();
 
+    // Immediately seed interviewer options from loaded data (works even if meta API fails)
+    if (!offset) {
+        const seeded = [...new Set(candidates.map(c => c.interviewer).filter(Boolean))];
+        if (seeded.length > 0) interviewerOptions = seeded;
+    }
+
+    // Also try meta API for the canonical list (may include unused options)
+    if (!offset) fetchInterviewerOptions();
+
     if (candidates.length > 0 && !currentCandidateId) {
         // Select the first visible candidate (top of the main list, not hidden section)
         const sortedCandidates = getSortedCandidates();
@@ -1189,6 +1200,52 @@ async function updateAirtableViaServer(recordId, fields) {
     return data;
 }
 
+async function fetchInterviewerOptions() {
+    try {
+        let newOptions = null;
+        if (hasValidSettings()) {
+            // Browser-side: call meta API directly
+            const settings = getAirtableSettings();
+            const { token, baseId, tableName } = settings;
+            const url = `https://api.airtable.com/v0/meta/bases/${baseId}/tables`;
+            const response = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) return;
+            const data = await response.json();
+            const table = data.tables.find(t => t.name === tableName || t.id === tableName);
+            if (!table) return;
+            const field = table.fields.find(f => f.name === 'Interviewer');
+            if (field && field.options && field.options.choices) {
+                newOptions = field.options.choices.map(c => c.name);
+            }
+        } else {
+            // Server-side: use the /api/field-options endpoint
+            const response = await fetch('/api/field-options/interviewer');
+            if (!response.ok) return;
+            const data = await response.json();
+            if (data.success && data.options && data.options.length > 0) {
+                newOptions = data.options;
+            }
+        }
+        if (newOptions && newOptions.length > 0) {
+            interviewerOptions = newOptions;
+            // Refresh the visible chips if a candidate is already shown
+            const chipsContainer = document.querySelector('.interviewer-chips');
+            if (chipsContainer && currentCandidateId) {
+                const candidate = candidates.find(c => c.id === currentCandidateId);
+                const currentInterviewer = candidate ? candidate.interviewer : null;
+                chipsContainer.innerHTML = interviewerOptions.map((name, idx) => {
+                    const isActive = currentInterviewer === name;
+                    return `<button class="interviewer-chip${isActive ? ' active' : ''}" data-name="${name}" onclick="clickInterviewer('${currentCandidateId}', '${name.replace(/'/g, "\\'")}')"><span class="interviewer-chip-num">${idx + 1}</span>${name}</button>`;
+                }).join('');
+            }
+        }
+    } catch (err) {
+        console.warn('Could not fetch interviewer options:', err.message);
+    }
+}
+
 function undoLastMove() {
     if (!statusHistory.length) return;
     const lastAction = statusHistory.pop();
@@ -1654,9 +1711,10 @@ function renderCandidateDetails(c) {
         'id', 'airtableId', 'createdTime', 'aiScore', 'name', // Internal/System
         'firstName', 'lastName', // Header title
         'location', 'technical', 'previouslyApplied', // Header info
+        'interviewer', // Interviewer dropdown
         'coryNotes', // Feedback section
         // Fields in sections array above:
-        'personalLinks', 'company', 'decision', 
+        'personalLinks', 'company', 'decision',
         'coryOverallScore', 'coryEnergy', 'corySmart', 'coryStorytelling',
         'schoolOrWork', 'projectDescription', 'problemSolving', 'expertise',
         'competitors', 'pastWork', 'nerdy', 'drives', 'nonTraditional',
@@ -1684,8 +1742,23 @@ function renderCandidateDetails(c) {
     // Filter out empty sections
     const filteredSections = sections.filter(([title, content]) => content && String(content).trim());
     
+    // Build list of interviewers to show (merge options + current value)
+    const allInterviewers = interviewerOptions.length > 0
+        ? [...new Set([...interviewerOptions, ...(c.interviewer && !interviewerOptions.includes(c.interviewer) ? [c.interviewer] : [])])]
+        : (c.interviewer ? [c.interviewer] : []);
+
+    const interviewerChipsHtml = allInterviewers.map((name, idx) => {
+        const isActive = c.interviewer === name;
+        return `<button class="interviewer-chip${isActive ? ' active' : ''}" data-name="${name}" onclick="clickInterviewer('${c.id}', '${name.replace(/'/g, "\\'")}')"><span class="interviewer-chip-num">${idx + 1}</span>${name}</button>`;
+    }).join('');
+
     document.getElementById('candidate-details').innerHTML = `
         <div class="header-info">
+            <div class="header-info-item interviewer-chips-row">
+                <span class="header-info-label">Interviewer:</span>
+                <span class="interviewer-chips">${interviewerChipsHtml || '<span style="color:var(--text-tertiary);font-size:12px">loading…</span>'}</span>
+                <span class="save-status interviewer-save-status" id="interviewer-save-status"></span>
+            </div>
             <div class="header-info-item"><span class="header-info-label">Location:</span><span class="header-info-value">${c.location}</span></div>
             <div class="header-info-item"><span class="header-info-label">Technical:</span><span class="header-info-value">${c.technical}</span></div>
             <div class="header-info-item"><span class="header-info-label">Previously Applied:</span><span class="header-info-value">${c.previouslyApplied}</span></div>
@@ -1706,7 +1779,7 @@ function renderCandidateDetails(c) {
             `).join('')}
         </div>
     `;
-    
+
     // Setup auto-save for notes
     const notesInput = document.getElementById('cory-notes-input');
     let saveTimeout;
@@ -1740,6 +1813,31 @@ async function saveCoryNotes(candidateId, notes) {
         statusEl.textContent = 'Failed to save';
         statusEl.className = 'save-status error';
     }
+}
+
+async function clickInterviewer(candidateId, name) {
+    const statusEl = document.getElementById('interviewer-save-status');
+    if (statusEl) { statusEl.textContent = 'Saving...'; statusEl.className = 'save-status interviewer-save-status'; }
+
+    try {
+        const fields = { 'Interviewer': name };
+        if (hasValidSettings()) {
+            await updateAirtableDirect(candidateId, fields);
+        } else {
+            await updateAirtableViaServer(candidateId, fields);
+        }
+        const candidate = candidates.find(c => c.id === candidateId);
+        if (candidate) candidate.interviewer = name;
+    } catch (err) {
+        console.error('Failed to save interviewer:', err);
+        if (statusEl) { statusEl.textContent = 'Failed'; statusEl.className = 'save-status interviewer-save-status error'; }
+        return;
+    }
+
+    // Same as pressing "I": set to Stage 2: Interview, advance, move flag
+    setStatus(candidateId, 'Stage 2: Interview');
+    moveToNextCandidate();
+    checkAndMoveFlag();
 }
 
 async function checkAndMoveFlag() {

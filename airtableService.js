@@ -27,7 +27,8 @@ const FIELD_MAPPINGS = {
     'Previously applied?': 'previouslyApplied',
     'Stage': 'stage',
     'Accept or Reject or Waitlist': 'decision',
-    
+    'Interviewer': 'interviewer',
+
     // Stage-related fields
     'Stage 2 Link To Calendar': 'stage2Calendar',
     'Stage 3 Schedule and Date': 'stage3Schedule',

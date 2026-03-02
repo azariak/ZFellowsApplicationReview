@@ -583,6 +583,70 @@ kbd {
     font-size: 16px;
 }
 
+/* Interviewer chips */
+.interviewer-chips-row {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.interviewer-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.interviewer-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px 2px 3px;
+    font-size: 12px;
+    font-family: inherit;
+    color: var(--text-secondary);
+    background: var(--button-bg);
+    border: 1px solid var(--button-border);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.interviewer-chip:hover {
+    background: var(--button-hover-bg);
+    border-color: var(--button-hover-border);
+    color: var(--text-primary);
+}
+
+.interviewer-chip.active {
+    background: var(--active-bg);
+    border-color: var(--active-border);
+    color: var(--active-border);
+    font-weight: 600;
+}
+
+.interviewer-chip-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--border-color);
+    color: var(--text-secondary);
+    border-radius: 50%;
+}
+
+.interviewer-chip.active .interviewer-chip-num {
+    background: var(--active-border);
+    color: white;
+}
+
+.interviewer-save-status {
+    font-size: 11px;
+}
+
 .feedback-section {
     max-width: 900px;
     margin-bottom: 0px;
