@@ -13,6 +13,7 @@ let isLoadingMore = false;
 let sortOrder = 'oldest'; // 'oldest' (chronological) or 'ai-score'
 let interviewerOptions = []; // Populated from Airtable field metadata
 let pendingTimers = {}; // { candidateId: { timerId, endTime, status } }
+let searchSelectedId = null; // Set when a candidate is selected via search; prevents flag move for searched candidates
 const fontSizes = [10, 11, 13, 15, 17];
 
 // Airtable settings keys
@@ -1025,6 +1026,9 @@ function setStatus(candidateId, status, skipHistory = false) {
     }
 
     // Determine if flag should move (will be delayed by 5 seconds)
+    // Capture whether this candidate was selected via search — if so, don't move the flag
+    const wasSearched = candidateId === searchSelectedId;
+    searchSelectedId = null; // Clear after capturing so it only applies once
     let shouldMoveFlag = false;
     if (status === 'Stage 2: Interview') {
         shouldMoveFlag = true;
@@ -1066,8 +1070,8 @@ function setStatus(candidateId, status, skipHistory = false) {
         const pendingInfo = pendingTimers[candidateId];
         delete pendingTimers[candidateId];
 
-        // Move flag if it was pending
-        if (pendingInfo && pendingInfo.shouldMoveFlag) {
+        // Move flag if it was pending and the candidate wasn't selected via search
+        if (pendingInfo && pendingInfo.shouldMoveFlag && !pendingInfo.wasSearched) {
             moveFlagToCandidate(candidateId);
         }
 
@@ -1087,7 +1091,7 @@ function setStatus(candidateId, status, skipHistory = false) {
                 console.error('Failed to sync to Airtable:', err.message);
             });
     }, 5000);
-    pendingTimers[candidateId] = { timerId, intervalId, endTime, status, shouldMoveFlag };
+    pendingTimers[candidateId] = { timerId, intervalId, endTime, status, shouldMoveFlag, wasSearched };
 }
 
 // Map our internal status names to Airtable's Stage field values
@@ -1401,6 +1405,7 @@ function handleSearch(e) {
     });
     
     if (match) {
+        searchSelectedId = match.id;
         selectCandidate(match.id);
         // Scroll to the candidate in the list
         const candidateElement = document.querySelector('.candidate-item.active');
