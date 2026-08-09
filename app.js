@@ -497,7 +497,7 @@ async function fetchFromAirtableDirect(offset = null) {
     const { token, baseId, tableName } = settings;
     const allRecords = [];
     let currentOffset = offset;
-    const maxRecords = 500;
+    const maxRecords = 1000;
     let recordsFetched = 0;
     let nextOffsetResult = null;
 

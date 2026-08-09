@@ -83,10 +83,10 @@ const FIELD_MAPPINGS = {
 
 /**
  * Fetch records from Airtable with pagination support
- * @param {number} maxRecords - Maximum number of records to fetch (default 500)
+ * @param {number} maxRecords - Maximum number of records to fetch (default 1000)
  * @param {string} offset - Pagination offset from previous request
  */
-async function fetchRecords(maxRecords = 500, offset = null) {
+async function fetchRecords(maxRecords = 1000, offset = null) {
     const token = process.env.AIRTABLE;
     const baseId = process.env.AIRTABLE_BASE_ID;
     const tableName = process.env.AIRTABLE_TABLE_NAME || 'Applications';
@@ -241,7 +241,7 @@ function transformRecord(record, index) {
  * @param {number} limit - Maximum number of records to fetch
  * @param {string} offset - Pagination offset for "load more"
  */
-async function fetchCandidates(limit = 500, offset = null) {
+async function fetchCandidates(limit = 1000, offset = null) {
     console.log(`Fetching up to ${limit} candidates from Airtable...${offset ? ' (loading more)' : ''}`);
     const result = await fetchRecords(limit, offset);
     console.log(`Fetched ${result.records.length} records from Airtable`);

@@ -15,7 +15,7 @@ app.use(express.static(__dirname));
 // API endpoint to fetch candidates from Airtable
 app.get('/api/candidates', async (req, res) => {
     try {
-        const limit = parseInt(req.query.limit) || 500;
+        const limit = parseInt(req.query.limit) || 1000;
         const offset = req.query.offset || null;
         
         const result = await fetchCandidates(limit, offset);
